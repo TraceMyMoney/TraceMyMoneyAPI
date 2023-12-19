@@ -68,8 +68,8 @@ def create_bulk_expenses():
 
 def __create_expense_object(data, bank):
     # TODO: apply DATE_TIME_FORMAT here
-    created_at = datetime.strptime(data.get('created_at'), "%Y-%m-%dT%H:%M:%SZ")
-    updated_at = datetime.strptime(data.get('updated_at'), "%Y-%m-%dT%H:%M:%SZ")
+    created_at = datetime.strptime(data.get('created_at'), DATE_TIME_FORMAT)
+    updated_at = datetime.strptime(data.get('updated_at'), DATE_TIME_FORMAT)
     ee_list = []
     if data.get('expenses'):
         for entry in data.get('expenses'):

@@ -13,7 +13,7 @@ class BankSchema(Schema):
     name = fields.String()
     initial_balance = fields.Float()
     current_balance = fields.Float()
-    remaining_balance = fields.Float()
+    total_disbursed_till_now = fields.Float()
     created_at = fields.Date(DATE_TIME_FORMAT)
     updated_at = fields.Date(DATE_TIME_FORMAT)
 
@@ -23,6 +23,7 @@ class ExpenseSchema(Schema):
     day = fields.String()
     expenses = fields.List(fields.Nested(ExpenseEntrySchema))
     bank_name = fields.String()
+    remaining_amount_till_now = fields.Float()
     expense_total = fields.Float()
     created_at = fields.Date(DATE_TIME_FORMAT)
     updated_at = fields.Date(DATE_TIME_FORMAT)
