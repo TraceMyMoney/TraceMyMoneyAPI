@@ -66,6 +66,34 @@ def create_bulk_expenses():
             'error': err.message
         }), 500
 
+@expense_bp.delete('/delete')
+def delete_expense():
+    params = dict(request.args)
+    if params.get('id'):
+        try:
+            expense = Expense.objects(id=params.get('id')).first()
+            if expense:
+                expense.delete()
+                return jsonify({
+                    'deleted': 'Document deleted successfully'
+                }), 204
+            else:
+                return jsonify({
+                    'error': 'Document not found'
+                }), 404
+        except AttributeError as err:
+            return jsonify({
+                'error': err.args
+            }), 500
+        except Exception as e:
+            return jsonify({
+                'error': 'Error while deleting the document'
+            }), 500
+    else:
+        return jsonify({
+            'error': 'Please provide the Expense ID'
+        }), 400
+
 def __create_expense_object(data, bank):
     # TODO: apply DATE_TIME_FORMAT here
     created_at = datetime.strptime(data.get('created_at'), DATE_TIME_FORMAT)

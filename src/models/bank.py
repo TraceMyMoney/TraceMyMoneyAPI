@@ -25,15 +25,27 @@ class Bank(Document):
     def store_remaining_amount(self):
         sorted_expenses = self.get_expenses()
         for expense in sorted_expenses:
-            remaining_amount_till_now = self.current_balance - expense.expense_total
-            total_disbursed_till_now = self.total_disbursed_till_now + expense.expense_total
+            self.update_bank_and_expense_data(expense)
 
-            # Update the expense document
-            expense.update(set__remaining_amount_till_now=remaining_amount_till_now)
+    def update_bank_and_expense_data(self, expense):
+        remaining_amount_till_now = self.current_balance - expense.expense_total
+        total_disbursed_till_now = self.total_disbursed_till_now + expense.expense_total
 
-            # Update the Bank document
-            self.update(
-                set__total_disbursed_till_now=total_disbursed_till_now,
-                set__current_balance=remaining_amount_till_now
-            )
-            self.reload()
+        # Update the expense document
+        expense.update(set__remaining_amount_till_now=remaining_amount_till_now)
+
+        # Update the Bank document
+        self.update(
+            set__total_disbursed_till_now=total_disbursed_till_now,
+            set__current_balance=remaining_amount_till_now
+        )
+        self.reload()
+
+    def update_bank_data_after_expense_deletion(self, expense):
+        current_balalnce = self.current_balance + expense.expense_total
+        total_disbursed_till_now = self.total_disbursed_till_now - expense.expense_total
+        self.update(
+            set__total_disbursed_till_now=total_disbursed_till_now,
+            set__current_balance=current_balalnce
+        )
+        self.reload()
