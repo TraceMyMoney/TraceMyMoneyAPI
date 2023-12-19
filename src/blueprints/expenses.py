@@ -66,10 +66,39 @@ def create_bulk_expenses():
             'error': err.message
         }), 500
 
+@expense_bp.delete('/delete')
+def delete_expense():
+    params = dict(request.args)
+    if params.get('id'):
+        try:
+            # TODO : validate the expense as top of stack before deletion
+            # or let uesr delete any expense, but all other expenses above it, needs to be updated !
+            expense = Expense.objects(id=params.get('id')).first()
+            if expense:
+                expense.delete()
+                return jsonify({
+                    'deleted': 'Document deleted successfully'
+                }), 204
+            else:
+                return jsonify({
+                    'error': 'Document not found'
+                }), 404
+        except AttributeError as err:
+            return jsonify({
+                'error': err.args
+            }), 500
+        except Exception as e:
+            return jsonify({
+                'error': 'Error while deleting the document'
+            }), 500
+    else:
+        return jsonify({
+            'error': 'Please provide the Expense ID'
+        }), 400
+
 def __create_expense_object(data, bank):
-    # TODO: apply DATE_TIME_FORMAT here
-    created_at = datetime.strptime(data.get('created_at'), "%Y-%m-%dT%H:%M:%SZ")
-    updated_at = datetime.strptime(data.get('updated_at'), "%Y-%m-%dT%H:%M:%SZ")
+    created_at = datetime.strptime(data.get('created_at'), DATE_TIME_FORMAT)
+    updated_at = datetime.strptime(data.get('updated_at'), DATE_TIME_FORMAT)
     ee_list = []
     if data.get('expenses'):
         for entry in data.get('expenses'):
