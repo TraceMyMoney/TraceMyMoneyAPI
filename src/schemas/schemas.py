@@ -1,12 +1,10 @@
 from marshmallow import Schema, fields
-
 from constants import DATE_TIME_FORMAT
 
 class ExpenseEntrySchema(Schema):
     amount = fields.Float()
     description = fields.String()
     expense_entry_type = fields.String()
-
 
 class BankSchema(Schema):
     id = fields.String()
@@ -16,7 +14,6 @@ class BankSchema(Schema):
     total_disbursed_till_now = fields.Float()
     created_at = fields.Date(DATE_TIME_FORMAT)
     updated_at = fields.Date(DATE_TIME_FORMAT)
-
 
 class ExpenseSchema(Schema):
     id = fields.String()

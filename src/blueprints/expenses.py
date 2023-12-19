@@ -71,6 +71,8 @@ def delete_expense():
     params = dict(request.args)
     if params.get('id'):
         try:
+            # TODO : validate the expense as top of stack before deletion
+            # or let uesr delete any expense, but all other expenses above it, needs to be updated !
             expense = Expense.objects(id=params.get('id')).first()
             if expense:
                 expense.delete()
@@ -95,7 +97,6 @@ def delete_expense():
         }), 400
 
 def __create_expense_object(data, bank):
-    # TODO: apply DATE_TIME_FORMAT here
     created_at = datetime.strptime(data.get('created_at'), DATE_TIME_FORMAT)
     updated_at = datetime.strptime(data.get('updated_at'), DATE_TIME_FORMAT)
     ee_list = []
