@@ -10,7 +10,7 @@ bank_bp = Blueprint('banks', __name__)
 
 @bank_bp.get('/')
 def banks():
-    result = BankSchema().dump(Bank.objects(), many=True)
+    result = BankSchema().dump(Bank.get_banks(**dict(request.args)), many=True)
     return jsonify({
         'banks': result
     }), 200

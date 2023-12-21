@@ -1,5 +1,5 @@
 from datetime import datetime
-
+from constants import DATE_TIME_FORMAT
 from . import expense_entry
 from mongoengine import ( Document,
                          StringField,
@@ -32,11 +32,11 @@ class Expense(Document):
             expenses = expenses.filter(id=kwargs.get('id'))
         else:
             if kwargs.get('created_at'):
-                expenses = expenses.filter(created_at=datetime.strptime(kwargs.get('created_at'), '%d-%m-%Y %H:%M'))
+                expenses = expenses.filter(created_at=datetime.strptime(kwargs.get('created_at'), DATE_TIME_FORMAT))
             elif kwargs.get('start_date') and kwargs.get('end_date'):
                 expenses = expenses.filter(
-                    created_at__gte=datetime.strptime(kwargs.get('start_date'), '%d-%m-%Y %H:%M'),
-                    created_at__lte=datetime.strptime(kwargs.get('end_date'), '%d-%m-%Y %H:%M')
+                    created_at__gte=datetime.strptime(kwargs.get('start_date'), DATE_TIME_FORMAT),
+                    created_at__lte=datetime.strptime(kwargs.get('end_date'), DATE_TIME_FORMAT)
                 ).order_by('created_at')
 
             if kwargs.get('bank_name'):

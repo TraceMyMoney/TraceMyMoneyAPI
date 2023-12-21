@@ -5,7 +5,7 @@ from flask.config import Config
 from mongoengine import connect
 
 config = Config('')
-env = environ.get('KOKO_PROMO_ENV', 'local').lower()
+env = environ.get('TRACKTHEMONEY_ENV', 'local').lower()
 
 if env == 'test':
     config.from_object(app_config['test'])
