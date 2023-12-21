@@ -18,6 +18,16 @@ class Bank(Document):
     def __repr__(self):
         return f'<Bank:{self.name}>'
 
+    @classmethod
+    def get_banks(cls, **kwargs):
+        banks = cls.objects
+        if kwargs.get('name'):
+            banks = banks.filter(name=kwargs['name'])
+        if kwargs.get('id'):
+            banks = banks.filter(id=kwargs['id'])
+
+        return banks
+
     def get_expenses(self):
         all_expenses = [expense.fetch() for expense in self.expenses]
         return sorted(all_expenses, key=lambda e: e.created_at)
