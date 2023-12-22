@@ -66,6 +66,33 @@ def create_bulk_expenses():
             'error': err.message
         }), 500
 
+# All updates regarding expenses
+@expense_bp.patch('/add-entry')
+def add_expense_entry():
+    params = request.args
+    if params.get('id'):
+        expense = Expense.objects(id=params['id']).first()
+        if expense:
+            decoded_records = loads(request.data.decode('utf-8'))
+            entry_records = [ExpenseEntry(**entry_record) for entry_record in decoded_records]
+            total_entry_entered = 0
+            for entry_record in entry_records:
+                total_entry_entered += entry_record.amount
+            expense.update(push_all__expenses=entry_records)
+            expense.total_entry_entered = total_entry_entered
+            expense.save()
+        else:
+            return jsonify({
+                'error': 'Expense not found for provided ID'
+            }), 400
+        return jsonify({
+            'success': 'Added expense successfully'
+        }), 201
+    else:
+        return jsonify({
+            'error': 'Please enter the expense ID to udpate'
+        }), 400
+
 @expense_bp.delete('/delete')
 def delete_expense():
     params = dict(request.args)
