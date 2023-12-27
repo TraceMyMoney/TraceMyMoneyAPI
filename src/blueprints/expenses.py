@@ -11,7 +11,7 @@ expense_bp = Blueprint('expenses', __name__)
 
 @expense_bp.get('/')
 def expenses():
-    expenses = Expense.get_expenses(**dict(request.args)).order_by('created_at')
+    expenses = Expense.get_expenses(**dict(request.args)).order_by('-created_at')
     results = ExpenseSchema().dump(expenses, many=True)
     return jsonify({
         'expenses': results
@@ -73,11 +73,9 @@ def add_expense_entry():
     if params.get('id'):
         expense = Expense.objects(id=params['id']).first()
         if expense:
-            decoded_records = loads(request.data.decode('utf-8'))
-            entry_records = [ExpenseEntry(**entry_record) for entry_record in decoded_records]
-            total_entry_entered = 0
-            for entry_record in entry_records:
-                total_entry_entered += entry_record.amount
+            entry_records = [ExpenseEntry(**entry_record) for entry_record in loads(request.data.decode('utf-8'))]
+            total_entry_entered = sum((entry_record.amount for entry_record in entry_records))
+
             expense.update(push_all__expenses=entry_records)
             expense.total_entry_entered = total_entry_entered
             expense.save()
