@@ -6,6 +6,7 @@ from schemas.schemas import ExpenseSchema
 from json import loads
 from datetime import datetime
 from constants import DATE_TIME_FORMAT
+from helpers import helper
 
 expense_bp = Blueprint('expenses', __name__)
 
@@ -112,7 +113,7 @@ def delete_expense():
             return jsonify({
                 'error': err.args
             }), 500
-        except Exception as e:
+        except Exception:
             return jsonify({
                 'error': 'Error while deleting the document'
             }), 500
@@ -122,18 +123,16 @@ def delete_expense():
         }), 400
 
 def __create_expense_object(data, bank):
-    created_at = datetime.strptime(data.get('created_at'), DATE_TIME_FORMAT)
-    updated_at = datetime.strptime(data.get('updated_at'), DATE_TIME_FORMAT)
+    created_at = datetime.strptime(data.get('created_at', helper.provide_todays_date()), DATE_TIME_FORMAT)
     ee_list = []
     if data.get('expenses'):
         for entry in data.get('expenses'):
-            expense_entry = ExpenseEntry( amount=entry.get('amount'),
-                                            description=entry.get('description'),
-                                            created_at=created_at,
-                                            updated_at=updated_at )
+            expense_entry = ExpenseEntry(amount=entry.get('amount'),
+                                         description=entry.get('description'),
+                                         created_at=created_at)
 
             if entry.get('type'):
                 expense_entry.expense_entry_type = entry.get('type')
             ee_list.append(expense_entry)
 
-    return Expense(bank=bank, created_at=created_at, updated_at=created_at, expenses=ee_list)
+    return Expense(bank=bank, created_at=created_at, expenses=ee_list)
