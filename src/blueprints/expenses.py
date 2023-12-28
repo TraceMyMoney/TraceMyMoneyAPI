@@ -6,12 +6,13 @@ from schemas.schemas import ExpenseSchema
 from json import loads
 from datetime import datetime
 from constants import DATE_TIME_FORMAT
+from helpers import helper
 
 expense_bp = Blueprint('expenses', __name__)
 
 @expense_bp.get('/')
 def expenses():
-    expenses = Expense.get_expenses(**dict(request.args)).order_by('created_at')
+    expenses = Expense.get_expenses(**dict(request.args)).order_by('-created_at')
     results = ExpenseSchema().dump(expenses, many=True)
     return jsonify({
         'expenses': results
@@ -66,6 +67,31 @@ def create_bulk_expenses():
             'error': err.message
         }), 500
 
+# All updates regarding expenses
+@expense_bp.patch('/add-entry')
+def add_expense_entry():
+    params = request.args
+    if params.get('id'):
+        expense = Expense.objects(id=params['id']).first()
+        if expense:
+            entry_records = [ExpenseEntry(**entry_record) for entry_record in loads(request.data.decode('utf-8'))]
+            total_entry_entered = sum((entry_record.amount for entry_record in entry_records))
+
+            expense.update(push_all__expenses=entry_records)
+            expense.total_entry_entered = total_entry_entered
+            expense.save()
+        else:
+            return jsonify({
+                'error': 'Expense not found for provided ID'
+            }), 400
+        return jsonify({
+            'success': 'Added expense successfully'
+        }), 201
+    else:
+        return jsonify({
+            'error': 'Please enter the expense ID to udpate'
+        }), 400
+
 @expense_bp.delete('/delete')
 def delete_expense():
     params = dict(request.args)
@@ -87,7 +113,7 @@ def delete_expense():
             return jsonify({
                 'error': err.args
             }), 500
-        except Exception as e:
+        except Exception:
             return jsonify({
                 'error': 'Error while deleting the document'
             }), 500
@@ -97,18 +123,16 @@ def delete_expense():
         }), 400
 
 def __create_expense_object(data, bank):
-    created_at = datetime.strptime(data.get('created_at'), DATE_TIME_FORMAT)
-    updated_at = datetime.strptime(data.get('updated_at'), DATE_TIME_FORMAT)
+    created_at = datetime.strptime(data.get('created_at', helper.provide_todays_date()), DATE_TIME_FORMAT)
     ee_list = []
     if data.get('expenses'):
         for entry in data.get('expenses'):
-            expense_entry = ExpenseEntry( amount=entry.get('amount'),
-                                            description=entry.get('description'),
-                                            created_at=created_at,
-                                            updated_at=updated_at )
+            expense_entry = ExpenseEntry(amount=entry.get('amount'),
+                                         description=entry.get('description'),
+                                         created_at=created_at)
 
             if entry.get('type'):
                 expense_entry.expense_entry_type = entry.get('type')
             ee_list.append(expense_entry)
 
-    return Expense(bank=bank, created_at=created_at, updated_at=created_at, expenses=ee_list)
+    return Expense(bank=bank, created_at=created_at, expenses=ee_list)

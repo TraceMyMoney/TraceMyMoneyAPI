@@ -2,6 +2,8 @@ from mongoengine import signals
 from models.expense import Expense
 
 def pre_save_expense(sender, document, **kwargs):
+    # Don't do any calculations here at all cost
+    # Just do the prior assignments
     __set_expense_field(document)
 
 def pre_bulk_insert_data(sender, documents, **kwargs):
@@ -11,8 +13,7 @@ def pre_bulk_insert_data(sender, documents, **kwargs):
 def post_save_expense(sender, document, **kwargs):
     expense_bank = document.get_bank() # lazy loading
     if expense_bank:
-        expense_bank.update(push__expenses=document)
-        expense_bank.update_bank_and_expense_data(document)
+        expense_bank.update_bank_and_expense_data(document, kwargs.get('created'))
 
 def post_bulk_insert_data(sender, documents, **kwargs):
     for document in documents:
