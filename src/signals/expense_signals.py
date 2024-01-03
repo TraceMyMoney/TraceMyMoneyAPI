@@ -1,5 +1,6 @@
 from mongoengine import signals
 from models.expense import Expense
+from workers.update_bank_and_expense_data_worker import update_bank_and_expense_data
 
 def pre_save_expense(sender, document, **kwargs):
     # Don't do any calculations here at all cost
@@ -13,7 +14,11 @@ def pre_bulk_insert_data(sender, documents, **kwargs):
 def post_save_expense(sender, document, **kwargs):
     expense_bank = document.get_bank() # lazy loading
     if expense_bank:
-        expense_bank.update_bank_and_expense_data(document, kwargs.get('created'))
+        update_bank_and_expense_data.delay(
+            bank_id=str(expense_bank.id),
+            expense_id=str(document.id),
+            is_newly_created=kwargs.get('created')
+        )
 
 def post_bulk_insert_data(sender, documents, **kwargs):
     for document in documents:
