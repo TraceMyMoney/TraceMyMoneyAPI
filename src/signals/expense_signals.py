@@ -17,7 +17,8 @@ def post_save_expense(sender, document, **kwargs):
         update_bank_and_expense_data.delay(
             bank_id=str(expense_bank.id),
             expense_id=str(document.id),
-            is_newly_created=kwargs.get('created')
+            is_newly_created=kwargs.get('created'),
+            total_entry_entered=getattr(document, 'total_entry_entered', None)
         )
 
 def post_bulk_insert_data(sender, documents, **kwargs):

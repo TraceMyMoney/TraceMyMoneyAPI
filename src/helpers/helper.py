@@ -1,5 +1,6 @@
 from datetime import datetime
 
-def provide_todays_date(str_format=True):
-    today_date = datetime.now()
-    return f'{today_date.day}-{today_date.month}-{today_date.year} 00:00' if str_format else (today_date.year, today_date.month, today_date.day)
+def provide_todays_date(provided_date=None, str_format=True):
+    custom_date = provided_date or datetime.now()
+    return f'{custom_date.day}-{custom_date.month}-{custom_date.year} 00:00'\
+        if str_format else (custom_date.year, custom_date.month, custom_date.day)
