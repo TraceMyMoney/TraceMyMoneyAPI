@@ -6,6 +6,8 @@ from mongoengine import ( Document,
                           ListField,
                           LazyReferenceField )
 
+from helpers import helper
+
 class Bank(Document):
     name = StringField(max_length=20)
     initial_balance = FloatField()
@@ -36,20 +38,6 @@ class Bank(Document):
         sorted_expenses = self.get_expenses()
         for expense in sorted_expenses:
             self.update_bank_and_expense_data(expense)
-
-    def update_bank_and_expense_data(self, expense):
-        remaining_amount_till_now = self.current_balance - expense.expense_total
-        total_disbursed_till_now = self.total_disbursed_till_now + expense.expense_total
-
-        # Update the expense document
-        expense.update(set__remaining_amount_till_now=remaining_amount_till_now)
-
-        # Update the Bank document
-        self.update(
-            set__total_disbursed_till_now=total_disbursed_till_now,
-            set__current_balance=remaining_amount_till_now
-        )
-        self.reload()
 
     def update_bank_data_after_expense_deletion(self, expense):
         current_balalnce = self.current_balance + expense.expense_total
