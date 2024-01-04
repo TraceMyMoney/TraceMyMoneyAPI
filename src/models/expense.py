@@ -33,11 +33,13 @@ class Expense(Document):
         else:
             if kwargs.get('created_at'):
                 expenses = expenses.filter(created_at=datetime.strptime(kwargs.get('created_at'), DATE_TIME_FORMAT))
-            elif kwargs.get('start_date') and kwargs.get('end_date'):
-                expenses = expenses.filter(
-                    created_at__gte=datetime.strptime(kwargs.get('start_date'), DATE_TIME_FORMAT),
-                    created_at__lte=datetime.strptime(kwargs.get('end_date'), DATE_TIME_FORMAT)
-                ).order_by('created_at')
+            elif kwargs.get('start_date'):
+                dict_ = {
+                    'created_at__gte': datetime.strptime(kwargs.get('start_date'), DATE_TIME_FORMAT)
+                }
+                if kwargs.get('end_date'):
+                    dict_['created_at__lte'] = datetime.strptime(kwargs.get('end_date'), DATE_TIME_FORMAT)
+                expenses = expenses.filter(**dict_).order_by('created_at')
 
             if kwargs.get('bank_name'):
                 expenses = expenses.filter(bank_name=kwargs.get('bank_name'))
