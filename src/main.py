@@ -1,11 +1,15 @@
-# Import the libraries
+# libraries imports
 from flask import Flask, jsonify
 from os import environ
-from config import config
-import extensions
-from blueprints.banks import bank_bp
-from blueprints.expenses import expense_bp
-from signals import expense_signals
+
+# relative imports
+from src.config import config
+from src.blueprints.banks import bank_bp
+from src.blueprints.expenses import expense_bp
+from src.signals import expense_signals
+
+# direct imports
+import src.extensions as ext
 
 # set env
 env = environ.get('TRACKTHEMONEY_ENV', 'local')
@@ -15,7 +19,7 @@ def create_app(config_name):
     app = Flask(__name__)
 
 
-    extensions.connect_mongo()
+    ext.connect_mongo()
     app.config.from_object(config[config_name])
 
     app.config.from_mapping(
@@ -39,4 +43,4 @@ elif env == 'production':
 else:
     app = create_app('development')
 
-celery_app = extensions.celery_init_app(app)
+celery_app = ext.celery_init_app(app)

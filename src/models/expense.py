@@ -1,6 +1,5 @@
+# libraries imports
 from datetime import datetime
-from constants import DATE_TIME_FORMAT
-from . import expense_entry
 from mongoengine import ( Document,
                          StringField,
                          DateTimeField,
@@ -8,6 +7,10 @@ from mongoengine import ( Document,
                          LazyReferenceField,
                          FloatField,
                          DENY )
+
+# relative imports
+from src.constants import DATE_TIME_FORMAT
+from src.models import expense_entry
 
 class Expense(Document):
     day = StringField()

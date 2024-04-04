@@ -1,9 +1,11 @@
+# libraries imports
 from celery import shared_task
 from datetime import datetime
 
-from models.expense import Expense
-from models.bank import Bank
-from helpers import helper
+# relative imports
+from src.models.expense import Expense
+from src.models.bank import Bank
+from src.helpers import helper
 
 @shared_task(ignore_result=False)
 def update_bank_and_expense_data(bank_id='', expense_id='', is_newly_created=True, total_entry_entered=None):

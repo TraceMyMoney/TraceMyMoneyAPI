@@ -1,12 +1,15 @@
+# libraries imports
 from flask import Blueprint, jsonify, request
-from models.expense import Expense
-from models.bank import Bank
-from models.expense_entry import ExpenseEntry
-from schemas.schemas import ExpenseSchema
 from json import loads
 from datetime import datetime
-from constants import DATE_TIME_FORMAT
-from helpers import helper
+
+# relative imports
+from src.constants import DATE_TIME_FORMAT
+from src.models.expense import Expense
+from src.models.bank import Bank
+from src.models.expense_entry import ExpenseEntry
+from src.schemas.schemas import ExpenseSchema
+from src.helpers import helper
 
 expense_bp = Blueprint('expenses', __name__)
 

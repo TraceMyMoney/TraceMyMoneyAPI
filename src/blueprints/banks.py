@@ -1,10 +1,13 @@
+# libraries imports
 from flask import Blueprint, jsonify, request
-from models.bank import Bank
 from json import loads
-from constants import DATE_TIME_FORMAT
 from datetime import datetime
-from schemas.schemas import BankSchema
 from mongoengine import ValidationError
+
+# relative imports
+from src.models.bank import Bank
+from src.constants import DATE_TIME_FORMAT
+from src.schemas.schemas import BankSchema
 
 bank_bp = Blueprint('banks', __name__)
 
