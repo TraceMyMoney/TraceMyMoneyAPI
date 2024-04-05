@@ -19,7 +19,7 @@ class Bank(Document):
     created_at = DateTimeField(default=datetime.now().date())
     updated_at = DateTimeField(default=datetime.now().date())
 
-    def __repr__(self):
+    def __str__(self):
         return f'<Bank:{self.name}>'
 
     @classmethod

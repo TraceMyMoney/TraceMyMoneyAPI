@@ -2,6 +2,7 @@
 from flask import Blueprint, jsonify, request
 from json import loads
 from datetime import datetime
+from mongoengine import NotUniqueError
 
 # relative imports
 from src.constants import DATE_TIME_FORMAT
@@ -33,6 +34,12 @@ def create_expense():
                     return jsonify({
                         'success': 'Docuement created successfully'
                     }), 201
+
+            except NotUniqueError as err:
+                return jsonify({
+                    'error': 'You cannot replicate the expense for the same day.'
+                }), 500
+
             except Exception as err:
                 return jsonify({
                     'error': err.message
@@ -126,7 +133,9 @@ def delete_expense():
         }), 400
 
 def __create_expense_object(data, bank):
-    created_at = datetime.strptime(data.get('created_at', helper.provide_todays_date()), DATE_TIME_FORMAT)
+    if data.get('created_at'):
+        created_at = datetime.strptime(data.get('created_at'), DATE_TIME_FORMAT)
+
     ee_list = []
     if data.get('expenses'):
         for entry in data.get('expenses'):
