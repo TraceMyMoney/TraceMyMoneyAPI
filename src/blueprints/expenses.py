@@ -42,7 +42,7 @@ def create_expense():
 
             except Exception as err:
                 return jsonify({
-                    'error': err.message
+                    'error': err.message if hasattr(err, 'message') else 'Default Error'
                 }), 500
         else:
             return jsonify({
@@ -74,7 +74,7 @@ def create_bulk_expenses():
             }), 201
     except Exception as err:
         return jsonify({
-            'error': err.message
+            'error': err.message if hasattr(err, 'message') else 'Default Error'
         }), 500
 
 # All updates regarding expenses
