@@ -1,5 +1,8 @@
+# libraries imports
 from marshmallow import Schema, fields
-from constants import DATE_TIME_FORMAT
+
+# relative imports
+from src.constants import DATE_TIME_FORMAT
 
 class ExpenseEntrySchema(Schema):
     amount = fields.Float()

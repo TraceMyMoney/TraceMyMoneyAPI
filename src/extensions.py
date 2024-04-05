@@ -1,9 +1,11 @@
-# import libraries
+# libraries imports
 from os import environ
-from config import config as app_config
 from flask.config import Config
 from mongoengine import connect
 from celery import Celery, Task
+
+# relative imports
+from src.config import config as app_config
 
 config = Config('')
 env = environ.get('TRACKTHEMONEY_ENV', 'local').lower()

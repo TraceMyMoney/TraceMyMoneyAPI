@@ -1,6 +1,9 @@
+# libraries imports
 from mongoengine import signals
-from models.expense import Expense
-from workers.update_bank_and_expense_data_worker import update_bank_and_expense_data
+
+# relative imports
+from src.models.expense import Expense
+from src.workers.update_bank_and_expense_data_worker import update_bank_and_expense_data
 
 def pre_save_expense(sender, document, **kwargs):
     # Don't do any calculations here at all cost

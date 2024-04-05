@@ -1,3 +1,4 @@
+# libraries imports
 from datetime import datetime
 from mongoengine import ( Document,
                           StringField,
@@ -6,7 +7,8 @@ from mongoengine import ( Document,
                           ListField,
                           LazyReferenceField )
 
-from helpers import helper
+# relative imports
+from src.helpers import helper
 
 class Bank(Document):
     name = StringField(max_length=20)
