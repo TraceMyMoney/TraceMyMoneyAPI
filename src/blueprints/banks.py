@@ -21,8 +21,9 @@ def banks():
 @bank_bp.post('/create')
 def create_bank():
     data = loads(request.data.decode('utf-8'))
-    data['created_at'] = datetime.strptime(data.get('created_at'), DATE_TIME_FORMAT)
-    data['updated_at'] = datetime.strptime(data.get('updated_at'), DATE_TIME_FORMAT)
+    if data.get('created_at'):
+        data['created_at'] = datetime.strptime(data.get('created_at'), DATE_TIME_FORMAT)
+
     try:
         if Bank(**data).save():
             return jsonify({

@@ -32,23 +32,24 @@ def update_bank_and_expense_data(bank_id='', expense_id='', is_newly_created=Tru
                     push__expenses=expense
                 )
             else:
-                expense_bank_current_balance = bank.current_balance - total_entry_entered
+                if total_entry_entered is not None:
+                    expense_bank_current_balance = bank.current_balance - total_entry_entered
 
-                expense_data_to_update.update(
-                    set__expense_total=(expense.expense_total + total_entry_entered),
-                    set__remaining_amount_till_now=(expense.remaining_amount_till_now - total_entry_entered)
-                )
-                bank_data_to_update.update(
-                    set__total_disbursed_till_now=(bank.total_disbursed_till_now + total_entry_entered),
-                    set__current_balance=expense_bank_current_balance,
-                )
-
-                upper_expenses = Expense.get_expenses(**dict(start_date=helper.provide_todays_date(provided_date=expense.created_at)))[1:]
-                if upper_expenses:
-                    upper_expenses.update(
-                        **{ 'inc__remaining_amount_till_now': -total_entry_entered },
-                        multi=True
+                    expense_data_to_update.update(
+                        set__expense_total=(expense.expense_total + total_entry_entered),
+                        set__remaining_amount_till_now=(expense.remaining_amount_till_now - total_entry_entered)
                     )
+                    bank_data_to_update.update(
+                        set__total_disbursed_till_now=(bank.total_disbursed_till_now + total_entry_entered),
+                        set__current_balance=expense_bank_current_balance,
+                    )
+
+                    upper_expenses = Expense.get_expenses(**dict(start_date=helper.provide_todays_date(provided_date=expense.created_at)))[1:]
+                    if upper_expenses:
+                        upper_expenses.update(
+                            **{ 'inc__remaining_amount_till_now': -total_entry_entered },
+                            multi=True
+                        )
 
             expense.update(**expense_data_to_update)
             bank.update(**bank_data_to_update)
