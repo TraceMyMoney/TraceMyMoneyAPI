@@ -1,6 +1,5 @@
+# libraries imports
 from datetime import datetime
-from constants import DATE_TIME_FORMAT
-from . import expense_entry
 from mongoengine import ( Document,
                          StringField,
                          DateTimeField,
@@ -8,6 +7,10 @@ from mongoengine import ( Document,
                          LazyReferenceField,
                          FloatField,
                          DENY )
+
+# relative imports
+from src.constants import DATE_TIME_FORMAT
+from src.models import expense_entry
 
 class Expense(Document):
     day = StringField()
@@ -19,11 +22,17 @@ class Expense(Document):
     created_at = DateTimeField(default=datetime.now().date())
     updated_at = DateTimeField(default=datetime.now().date())
 
+    meta = dict(
+        indexes=[
+            dict(fields=['created_at', 'updated_at'], unique=True)
+        ]
+    )
+
     def get_total_of_expenses(self):
         return sum([ee.amount for ee in self.expenses])
 
     def get_bank(self):
-        return self.bank.fetch()
+        return self.bank.fetch() # concept of lazy reference field
 
     @classmethod
     def get_expenses(cls, **kwargs):

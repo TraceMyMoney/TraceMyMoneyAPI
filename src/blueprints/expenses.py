@@ -1,12 +1,16 @@
+# libraries imports
 from flask import Blueprint, jsonify, request
-from models.expense import Expense
-from models.bank import Bank
-from models.expense_entry import ExpenseEntry
-from schemas.schemas import ExpenseSchema
 from json import loads
 from datetime import datetime
-from constants import DATE_TIME_FORMAT
-from helpers import helper
+from mongoengine import NotUniqueError
+
+# relative imports
+from src.constants import DATE_TIME_FORMAT
+from src.models.expense import Expense
+from src.models.bank import Bank
+from src.models.expense_entry import ExpenseEntry
+from src.schemas.schemas import ExpenseSchema
+from src.helpers import helper
 
 expense_bp = Blueprint('expenses', __name__)
 
@@ -30,9 +34,15 @@ def create_expense():
                     return jsonify({
                         'success': 'Docuement created successfully'
                     }), 201
+
+            except NotUniqueError as err:
+                return jsonify({
+                    'error': 'You cannot replicate the expense for the same day.'
+                }), 500
+
             except Exception as err:
                 return jsonify({
-                    'error': err.message
+                    'error': err.message if hasattr(err, 'message') else 'Default Error'
                 }), 500
         else:
             return jsonify({
@@ -64,7 +74,7 @@ def create_bulk_expenses():
             }), 201
     except Exception as err:
         return jsonify({
-            'error': err.message
+            'error': err.message if hasattr(err, 'message') else 'Default Error'
         }), 500
 
 # All updates regarding expenses
@@ -76,9 +86,8 @@ def add_expense_entry():
         if expense:
             entry_records = [ExpenseEntry(**entry_record) for entry_record in loads(request.data.decode('utf-8'))]
             total_entry_entered = sum((entry_record.amount for entry_record in entry_records))
-
             expense.update(push_all__expenses=entry_records)
-            expense.total_entry_entered = total_entry_entered
+            expense.total_entry_entered = total_entry_entered # dynamic attribute
             expense.save()
         else:
             return jsonify({
@@ -123,7 +132,10 @@ def delete_expense():
         }), 400
 
 def __create_expense_object(data, bank):
-    created_at = datetime.strptime(data.get('created_at', helper.provide_todays_date()), DATE_TIME_FORMAT)
+    created_at = None
+    if data.get('created_at'):
+        created_at = datetime.strptime(data.get('created_at'), DATE_TIME_FORMAT)
+
     ee_list = []
     if data.get('expenses'):
         for entry in data.get('expenses'):

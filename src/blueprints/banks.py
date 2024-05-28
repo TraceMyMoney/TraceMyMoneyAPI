@@ -1,10 +1,13 @@
+# libraries imports
 from flask import Blueprint, jsonify, request
-from models.bank import Bank
 from json import loads
-from constants import DATE_TIME_FORMAT
 from datetime import datetime
-from schemas.schemas import BankSchema
 from mongoengine import ValidationError
+
+# relative imports
+from src.models.bank import Bank
+from src.constants import DATE_TIME_FORMAT
+from src.schemas.schemas import BankSchema
 
 bank_bp = Blueprint('banks', __name__)
 
@@ -18,8 +21,9 @@ def banks():
 @bank_bp.post('/create')
 def create_bank():
     data = loads(request.data.decode('utf-8'))
-    data['created_at'] = datetime.strptime(data.get('created_at'), DATE_TIME_FORMAT)
-    data['updated_at'] = datetime.strptime(data.get('updated_at'), DATE_TIME_FORMAT)
+    if data.get('created_at'):
+        data['created_at'] = datetime.strptime(data.get('created_at'), DATE_TIME_FORMAT)
+
     try:
         if Bank(**data).save():
             return jsonify({

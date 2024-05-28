@@ -1,10 +1,16 @@
+# libraries imports
 from marshmallow import Schema, fields
-from constants import DATE_TIME_FORMAT
+
+# relative imports
+from src.constants import DATE_TIME_FORMAT
 
 class ExpenseEntrySchema(Schema):
     amount = fields.Float()
     description = fields.String()
     expense_entry_type = fields.String()
+    ee_id = fields.Integer()
+    created_at = fields.Date(DATE_TIME_FORMAT)
+    updated_at = fields.Date(DATE_TIME_FORMAT)
 
 class BankSchema(Schema):
     id = fields.String()
