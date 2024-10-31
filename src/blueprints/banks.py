@@ -1,5 +1,6 @@
 # libraries imports
 from flask import Blueprint, jsonify, request
+from flask_cors import CORS
 from json import loads
 from datetime import datetime
 from mongoengine import ValidationError
@@ -10,6 +11,7 @@ from src.constants import DATE_TIME_FORMAT
 from src.schemas.schemas import BankSchema
 
 bank_bp = Blueprint('banks', __name__)
+CORS(bank_bp, resources={r"/*": {"origins": "*"}})
 
 @bank_bp.get('/')
 def banks():
