@@ -1,6 +1,7 @@
 # libraries imports
 from flask import Blueprint, jsonify, request
 from json import loads
+from flask_cors import CORS
 from datetime import datetime
 from mongoengine import NotUniqueError
 
@@ -13,6 +14,7 @@ from src.schemas.schemas import ExpenseSchema
 from src.helpers import helper
 
 expense_bp = Blueprint('expenses', __name__)
+CORS(expense_bp, resources={r"/*": {"origins": "*"}})
 
 @expense_bp.get('/')
 def expenses():
