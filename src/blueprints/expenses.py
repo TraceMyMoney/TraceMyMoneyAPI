@@ -103,6 +103,30 @@ def add_expense_entry():
             'error': 'Please enter the expense ID to udpate'
         }), 400
 
+@expense_bp.delete('/delete-entry')
+def delete_expense_entry():
+    params = request.args
+    if params.get('id'):
+        expense = Expense.objects(id=params['id']).first()
+        if expense:
+            # TODO: Make the schema validations here.
+            entry_record = expense.expenses.filter(ee_id=params.get("ee_id"))[0]
+            if entry_record :
+                expense.update(pull__expenses=entry_record)
+                expense.removed_entry_record_amount = entry_record.amount # dynamic attribute
+                expense.save()
+        else:
+            return jsonify({
+                'error': 'Expense not found for provided ID'
+            }), 400
+        return jsonify({
+            'success': 'Deleted expense entry successfully'
+        }), 201
+    else:
+        return jsonify({
+            'error': 'Please enter the expense ID to udpate'
+        }), 400
+
 @expense_bp.delete('/delete')
 def delete_expense():
     params = dict(request.args)
