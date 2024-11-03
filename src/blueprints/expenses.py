@@ -121,7 +121,7 @@ def delete_expense_entry():
             }), 400
         return jsonify({
             'success': 'Deleted expense entry successfully'
-        }), 201
+        }), 204
     else:
         return jsonify({
             'error': 'Please enter the expense ID to udpate'
