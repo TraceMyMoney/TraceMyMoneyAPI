@@ -21,7 +21,7 @@ class ProductionConfig(BaseConfig):
 class TestConfig(BaseConfig):
     TESTING = True
     DEBUG = True
-    MONGO_DATABASE = environ.get('MONGO_DATABASE', 'test_trackthemoney')
+    MONGO_DATABASE = environ.get('MONGO_DATABASE', 'trackmoney_api_test')
 
 config = {
     'development': DevelopmentConfig,
