@@ -12,6 +12,7 @@ from src.models.bank import Bank
 from src.models.expense_entry import ExpenseEntry
 from src.schemas.schemas import ExpenseSchema
 from src.helpers import helper
+from src.models.expense_entry_tag import ExpenseEntryTag
 
 expense_bp = Blueprint('expenses', __name__)
 CORS(expense_bp, resources={r"/*": {"origins": "*"}})
@@ -34,7 +35,8 @@ def create_expense():
             try:
                 if expense.save():
                     return jsonify({
-                        'success': 'Docuement created successfully'
+                        'success': 'Docuement created successfully',
+                        "_id": str(expense.id)
                     }), 201
 
             except NotUniqueError as err:
@@ -165,9 +167,16 @@ def __create_expense_object(data, bank):
     ee_list = []
     if data.get('expenses'):
         for entry in data.get('expenses'):
+            existing_tags = []
+            if entry_tags := entry.get("entry_tags"):
+                existing_tags = list(map(
+                    lambda x: str(x.name),
+                    ExpenseEntryTag.objects(id__in=entry_tags)
+                ))
             expense_entry = ExpenseEntry(amount=entry.get('amount'),
                                          description=entry.get('description'),
-                                         created_at=created_at)
+                                         created_at=created_at,
+                                         entry_tags=existing_tags)
 
             if entry.get('type'):
                 expense_entry.expense_entry_type = entry.get('type')
