@@ -18,8 +18,9 @@ else:
     config.from_object(app_config['development'])
 
 def connect_mongo():
-    mongo_engine = connect(config['MONGO_DATABASE'],
+    mongo_engine = connect("trackmoney_api",
                        host=config['MONGO_DATABASE_URI'])
+    return mongo_engine
 
 def celery_init_app(app):
     class FlaskTask(Task):
