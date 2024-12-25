@@ -44,10 +44,10 @@ def update_bank_and_expense_data(bank_id='', expense_id='', is_newly_created=Tru
                         set__current_balance=expense_bank_current_balance,
                     )
 
-                    upper_expenses = Expense.get_expenses(**dict(start_date=helper.provide_todays_date(provided_date=expense.created_at)))[1:]
+                    upper_expenses = Expense.get_expenses(**dict(start_date=helper.provide_todays_date(provided_date=expense.created_at), bank_name=bank.name))[1:]
                     if upper_expenses:
                         upper_expenses.update(
-                            **{ 'inc__remaining_amount_till_now': -total_entry_entered },
+                            **{'inc__remaining_amount_till_now': -total_entry_entered},
                             multi=True
                         )
 

@@ -4,13 +4,20 @@ from marshmallow import Schema, fields
 # relative imports
 from src.constants import DATE_TIME_FORMAT
 
+
+class ExpenseEntryTagSchema(Schema):
+    name = fields.String()
+
+
 class ExpenseEntrySchema(Schema):
     amount = fields.Float()
     description = fields.String()
     expense_entry_type = fields.String()
     ee_id = fields.Integer()
+    entry_tags = fields.List(fields.Nested(ExpenseEntryTagSchema))
     created_at = fields.Date(DATE_TIME_FORMAT)
     updated_at = fields.Date(DATE_TIME_FORMAT)
+
 
 class BankSchema(Schema):
     id = fields.String()
@@ -20,6 +27,7 @@ class BankSchema(Schema):
     total_disbursed_till_now = fields.Float()
     created_at = fields.Date(DATE_TIME_FORMAT)
     updated_at = fields.Date(DATE_TIME_FORMAT)
+
 
 class ExpenseSchema(Schema):
     id = fields.String()

@@ -42,10 +42,11 @@ class Bank(Document):
             self.update_bank_and_expense_data(expense)
 
     def update_bank_data_after_expense_deletion(self, expense):
-        current_balalnce = self.current_balance + expense.expense_total
-        total_disbursed_till_now = self.total_disbursed_till_now - expense.expense_total
-        self.update(
-            set__total_disbursed_till_now=total_disbursed_till_now,
-            set__current_balance=current_balalnce
-        )
-        self.reload()
+        if ee_total := expense.expense_total:
+            current_balalnce = self.current_balance + ee_total
+            total_disbursed_till_now = self.total_disbursed_till_now - ee_total
+            self.update(
+                set__total_disbursed_till_now=total_disbursed_till_now,
+                set__current_balance=current_balalnce
+            )
+            self.reload()

@@ -22,11 +22,11 @@ class Expense(Document):
     created_at = DateTimeField(default=datetime.now().date())
     updated_at = DateTimeField(default=datetime.now().date())
 
-    meta = dict(
-        indexes=[
-            dict(fields=['created_at', 'updated_at'], unique=True)
-        ]
-    )
+    # meta = dict(
+    #     indexes=[
+    #         dict(fields=['created_at', 'updated_at'], unique=True)
+    #     ]
+    # )
 
     def get_total_of_expenses(self):
         return sum([ee.amount for ee in self.expenses])
