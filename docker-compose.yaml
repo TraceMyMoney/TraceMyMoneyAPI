@@ -10,7 +10,7 @@ services:
       - .env
     environment:
       - FLASK_APP=src/main.py
-      - MONGO_DATABASE_URI=mongodb+srv://parimalm4653:yP9Em9kJnp5m3F3x@trackmoney.vdzgbod.mongodb.net/
+      - MONGO_DATABASE_URI=mongodb+srv://parimalm4653:ParimalTM18@trackmoneyapi.1jzih.mongodb.net/
       - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
 
 
@@ -27,7 +27,7 @@ services:
     environment:
       - FLASK_APP=src/main.py
       - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
-      - MONGO_DATABASE_URI=mongodb+srv://parimalm4653:yP9Em9kJnp5m3F3x@trackmoney.vdzgbod.mongodb.net/
+      - MONGO_DATABASE_URI=mongodb+srv://parimalm4653:ParimalTM18@trackmoneyapi.1jzih.mongodb.net/
 
   rabbitmq:
     image: "rabbitmq:3-management"
