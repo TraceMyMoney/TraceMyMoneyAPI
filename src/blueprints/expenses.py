@@ -12,6 +12,7 @@ from src.models.bank import Bank
 from src.models.expense_entry import ExpenseEntry
 from src.schemas.schemas import ExpenseSchema
 from src.helpers import helper
+from src.models.expense_entry_tag import ExpenseEntryTag
 
 expense_bp = Blueprint('expenses', __name__)
 CORS(expense_bp, resources={r"/*": {"origins": "*"}})
@@ -34,7 +35,8 @@ def create_expense():
             try:
                 if expense.save():
                     return jsonify({
-                        'success': 'Docuement created successfully'
+                        'success': 'Docuement created successfully',
+                        "_id": str(expense.id)
                     }), 201
 
             except NotUniqueError as err:
@@ -103,6 +105,30 @@ def add_expense_entry():
             'error': 'Please enter the expense ID to udpate'
         }), 400
 
+@expense_bp.delete('/delete-entry')
+def delete_expense_entry():
+    params = request.args
+    if params.get('id'):
+        expense = Expense.objects(id=params['id']).first()
+        if expense:
+            # TODO: Make the schema validations here.
+            entry_record = expense.expenses.filter(ee_id=params.get("ee_id"))[0]
+            if entry_record :
+                expense.update(pull__expenses=entry_record)
+                expense.removed_entry_record_amount = entry_record.amount # dynamic attribute
+                expense.save()
+        else:
+            return jsonify({
+                'error': 'Expense not found for provided ID'
+            }), 400
+        return jsonify({
+            'success': 'Deleted expense entry successfully'
+        }), 204
+    else:
+        return jsonify({
+            'error': 'Please enter the expense ID to udpate'
+        }), 400
+
 @expense_bp.delete('/delete')
 def delete_expense():
     params = dict(request.args)
@@ -141,9 +167,16 @@ def __create_expense_object(data, bank):
     ee_list = []
     if data.get('expenses'):
         for entry in data.get('expenses'):
+            existing_tags = []
+            if entry_tags := entry.get("entry_tags"):
+                existing_tags = list(map(
+                    lambda x: str(x.name),
+                    ExpenseEntryTag.objects(id__in=entry_tags)
+                ))
             expense_entry = ExpenseEntry(amount=entry.get('amount'),
                                          description=entry.get('description'),
-                                         created_at=created_at)
+                                         created_at=created_at,
+                                         entry_tags=existing_tags)
 
             if entry.get('type'):
                 expense_entry.expense_entry_type = entry.get('type')

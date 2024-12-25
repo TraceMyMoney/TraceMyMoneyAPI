@@ -15,13 +15,18 @@ def pre_bulk_insert_data(sender, documents, **kwargs):
         __set_expense_field(document)
 
 def post_save_expense(sender, document, **kwargs):
+    if hasattr(document, "removed_entry_record_amount"):
+        total_entry_entered = (0 - document.removed_entry_record_amount)
+    else:
+        total_entry_entered=getattr(document, "total_entry_entered", None)
+
     expense_bank = document.get_bank() # lazy loading
     if expense_bank:
         update_bank_and_expense_data.delay(
             bank_id=str(expense_bank.id),
             expense_id=str(document.id),
             is_newly_created=kwargs.get('created'),
-            total_entry_entered=getattr(document, 'total_entry_entered', None)
+            total_entry_entered=total_entry_entered
         )
 
 def post_bulk_insert_data(sender, documents, **kwargs):
