@@ -14,178 +14,193 @@ from src.schemas.schemas import ExpenseSchema
 from src.helpers.authentication import token_required
 from src.models.expense_entry_tag import ExpenseEntryTag
 
-expense_bp = Blueprint('expenses', __name__)
+expense_bp = Blueprint("expenses", __name__)
 CORS(expense_bp, resources={r"/*": {"origins": "*"}})
 
-@expense_bp.get('/')
+
+@expense_bp.get("/")
 @token_required
 def expenses(current_user):
-    expenses = Expense.get_expenses(current_user, **dict(request.args)).order_by('-created_at')
+    expenses = Expense.get_expenses(current_user, **dict(request.args)).order_by(
+        "-created_at"
+    )
     results = ExpenseSchema().dump(expenses, many=True)
-    return jsonify({
-        'expenses': results
-    }), 200
+    return jsonify({"expenses": results}), 200
 
-@expense_bp.post('/create')
+
+@expense_bp.post("/create")
 @token_required
 def create_expense(current_user):
-    data = loads(request.data.decode('utf-8'))
-    if data.get('bank_id'):
-        bank = Bank.objects(id=data.get('bank_id')).first()
+    data = loads(request.data.decode("utf-8"))
+    if data.get("bank_id"):
+        bank = Bank.objects(id=data.get("bank_id")).first()
         if bank:
             expense = __create_expense_object(data, bank, current_user)
             try:
                 if expense.save():
-                    return jsonify({
-                        'success': 'Docuement created successfully',
-                        "_id": str(expense.id)
-                    }), 201
+                    return (
+                        jsonify(
+                            {
+                                "success": "Docuement created successfully",
+                                "_id": str(expense.id),
+                            }
+                        ),
+                        201,
+                    )
 
             except NotUniqueError as err:
-                return jsonify({
-                    'error': 'You cannot replicate the expense for the same day.'
-                }), 500
+                return (
+                    jsonify(
+                        {"error": "You cannot replicate the expense for the same day."}
+                    ),
+                    500,
+                )
 
             except Exception as err:
-                return jsonify({
-                    'error': err.message if hasattr(err, 'message') else 'Default Error'
-                }), 500
+                return (
+                    jsonify(
+                        {
+                            "error": (
+                                err.message
+                                if hasattr(err, "message")
+                                else "Default Error"
+                            )
+                        }
+                    ),
+                    500,
+                )
         else:
-            return jsonify({
-                'error': 'bank not found for the corresponding id'
-            }), 400
+            return jsonify({"error": "bank not found for the corresponding id"}), 400
     else:
-        return jsonify({
-            'error': 'please provide bank_id'
-        }), 400
+        return jsonify({"error": "please provide bank_id"}), 400
 
-@expense_bp.post('/create-bulk')
+
+@expense_bp.post("/create-bulk")
 @token_required
 def create_bulk_expenses(current_user):
-    records = loads(request.data.decode('utf-8'))
+    records = loads(request.data.decode("utf-8"))
     valid_objects = []
     for data in records:
-        if data.get('bank_id'):
-            bank = Bank.objects(id=data.get('bank_id')).first()
+        if data.get("bank_id"):
+            bank = Bank.objects(id=data.get("bank_id")).first()
             if bank:
                 expense = __create_expense_object(data, bank, current_user)
                 valid_objects.append(expense)
             else:
-                return jsonify({
-                    'error': 'Bank not found'
-                }), 201
+                return jsonify({"error": "Bank not found"}), 201
     try:
         if Expense.objects.insert(valid_objects):
-            return jsonify({
-                'success': 'Docuements inserted successfully'
-            }), 201
+            return jsonify({"success": "Docuements inserted successfully"}), 201
     except Exception as err:
-        return jsonify({
-            'error': err.message if hasattr(err, 'message') else 'Default Error'
-        }), 500
+        return (
+            jsonify(
+                {"error": err.message if hasattr(err, "message") else "Default Error"}
+            ),
+            500,
+        )
+
 
 # All updates regarding expenses
-@expense_bp.patch('/add-entry')
+@expense_bp.patch("/add-entry")
 @token_required
 def add_expense_entry(current_user):
     params = request.args
-    if params.get('id'):
-        expense = Expense.objects(id=params['id'], user_id=current_user.id).first()
+    if params.get("id"):
+        expense = Expense.objects(id=params["id"], user_id=current_user.id).first()
         if expense:
-            entry_records = [ExpenseEntry(**entry_record) for entry_record in loads(request.data.decode('utf-8'))]
-            total_entry_entered = sum((entry_record.amount for entry_record in entry_records))
+            entry_records = [
+                ExpenseEntry(**entry_record)
+                for entry_record in loads(request.data.decode("utf-8"))
+            ]
+            total_entry_entered = sum(
+                (entry_record.amount for entry_record in entry_records)
+            )
             expense.update(push_all__expenses=entry_records)
-            expense.total_entry_entered = total_entry_entered # dynamic attribute
+            expense.total_entry_entered = total_entry_entered  # dynamic attribute
             expense.save()
         else:
-            return jsonify({
-                'error': 'Expense not found for provided ID'
-            }), 400
-        return jsonify({
-            'success': 'Added expense successfully'
-        }), 201
+            return jsonify({"error": "Expense not found for provided ID"}), 400
+        return jsonify({"success": "Added expense successfully"}), 201
     else:
-        return jsonify({
-            'error': 'Please enter the expense ID to udpate'
-        }), 400
+        return jsonify({"error": "Please enter the expense ID to udpate"}), 400
 
-@expense_bp.delete('/delete-entry')
+
+@expense_bp.delete("/delete-entry")
 @token_required
 def delete_expense_entry(current_user):
     params = request.args
-    if params.get('id') and params.get("ee_id"):
-        expense = Expense.objects(id=params['id'], user_id=current_user.id).first()
+    if params.get("id") and params.get("ee_id"):
+        expense = Expense.objects(id=params["id"], user_id=current_user.id).first()
         if expense:
             # TODO: Make the schema validations here.
             entry_record = expense.expenses.filter(ee_id=params.get("ee_id"))[0]
-            if entry_record :
+            if entry_record:
                 expense.update(pull__expenses=entry_record)
-                expense.removed_entry_record_amount = entry_record.amount # dynamic attribute
+                expense.removed_entry_record_amount = (
+                    entry_record.amount
+                )  # dynamic attribute
                 expense.save()
         else:
-            return jsonify({
-                'error': 'Expense not found for provided ID'
-            }), 400
-        return jsonify({
-            'success': 'Deleted expense entry successfully'
-        }), 204
+            return jsonify({"error": "Expense not found for provided ID"}), 400
+        return jsonify({"success": "Deleted expense entry successfully"}), 204
     else:
-        return jsonify({
-            'error': 'Please enter the expense ID and entry ID to delete'
-        }), 400
+        return (
+            jsonify({"error": "Please enter the expense ID and entry ID to delete"}),
+            400,
+        )
 
-@expense_bp.delete('/delete')
+
+@expense_bp.delete("/delete")
 @token_required
 def delete_expense(current_user):
     params = dict(request.args)
-    if params.get('id'):
+    if params.get("id"):
         try:
             # TODO : validate the expense as top of stack before deletion
             # or let uesr delete any expense, but all other expenses above it, needs to be updated !
-            expense = Expense.objects(id=params.get('id'), user_id=current_user.id).first()
+            expense = Expense.objects(
+                id=params.get("id"), user_id=current_user.id
+            ).first()
             if expense:
                 expense.delete()
-                return jsonify({
-                    'deleted': 'Document deleted successfully'
-                }), 204
+                return jsonify({"deleted": "Document deleted successfully"}), 204
             else:
-                return jsonify({
-                    'error': 'Document not found'
-                }), 404
+                return jsonify({"error": "Document not found"}), 404
         except AttributeError as err:
-            return jsonify({
-                'error': err.args
-            }), 500
+            return jsonify({"error": err.args}), 500
         except Exception:
-            return jsonify({
-                'error': 'Error while deleting the document'
-            }), 500
+            return jsonify({"error": "Error while deleting the document"}), 500
     else:
-        return jsonify({
-            'error': 'Please provide the Expense ID'
-        }), 400
+        return jsonify({"error": "Please provide the Expense ID"}), 400
+
 
 def __create_expense_object(data, bank, current_user):
     created_at = None
-    if data.get('created_at'):
-        created_at = datetime.strptime(data.get('created_at'), DATE_TIME_FORMAT)
+    if data.get("created_at"):
+        created_at = datetime.strptime(data.get("created_at"), DATE_TIME_FORMAT)
 
     ee_list = []
-    if data.get('expenses'):
-        for entry in data.get('expenses'):
+    if data.get("expenses"):
+        for entry in data.get("expenses"):
             existing_tags = []
             if entry_tags := entry.get("entry_tags"):
-                existing_tags = list(map(
-                    lambda x: str(x.name),
-                    ExpenseEntryTag.objects(id__in=entry_tags)
-                ))
-            expense_entry = ExpenseEntry(amount=entry.get('amount'),
-                                         description=entry.get('description'),
-                                         created_at=created_at,
-                                         entry_tags=existing_tags)
+                existing_tags = list(
+                    map(
+                        lambda x: str(x.name),
+                        ExpenseEntryTag.objects(id__in=entry_tags),
+                    )
+                )
+            expense_entry = ExpenseEntry(
+                amount=entry.get("amount"),
+                description=entry.get("description"),
+                created_at=created_at,
+                entry_tags=existing_tags,
+            )
 
-            if entry.get('type'):
-                expense_entry.expense_entry_type = entry.get('type')
+            if entry.get("type"):
+                expense_entry.expense_entry_type = entry.get("type")
             ee_list.append(expense_entry)
 
-    return Expense(bank=bank, created_at=created_at, expenses=ee_list, user_id=str(current_user.id))
+    return Expense(
+        bank=bank, created_at=created_at, expenses=ee_list, user_id=str(current_user.id)
+    )

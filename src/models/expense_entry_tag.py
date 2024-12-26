@@ -1,8 +1,4 @@
-from mongoengine import (
-    Document,
-    StringField,
-    ObjectIdField
-)
+from mongoengine import Document, StringField, ObjectIdField
 
 
 class ExpenseEntryTag(Document):

@@ -7,20 +7,21 @@ from celery import Celery, Task
 # relative imports
 from src.config import config as app_config
 
-config = Config('')
-env = environ.get('TRACKTHEMONEY_ENV', 'local').lower()
+config = Config("")
+env = environ.get("TRACKTHEMONEY_ENV", "local").lower()
 
-if env == 'test':
-    config.from_object(app_config['test'])
-elif env == 'production':
-    config.from_object(app_config['production'])
+if env == "test":
+    config.from_object(app_config["test"])
+elif env == "production":
+    config.from_object(app_config["production"])
 else:
-    config.from_object(app_config['development'])
+    config.from_object(app_config["development"])
+
 
 def connect_mongo():
-    mongo_engine = connect("trackmoney_api_backup",
-                       host=config['MONGO_DATABASE_URI'])
+    mongo_engine = connect("trackmoney_api", host=config["MONGO_DATABASE_URI"])
     return mongo_engine
+
 
 def celery_init_app(app):
     class FlaskTask(Task):
@@ -29,7 +30,7 @@ def celery_init_app(app):
                 return self.run(*args, **kwargs)
 
     celery_app = Celery(app.name, task_cls=FlaskTask)
-    celery_app.config_from_object(app.config['CELERY'])
+    celery_app.config_from_object(app.config["CELERY"])
     celery_app.set_default()
-    app.extensions['celery'] = celery_app
+    app.extensions["celery"] = celery_app
     return celery_app

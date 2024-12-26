@@ -14,37 +14,42 @@ from src.signals import expense_signals, user_signals
 import src.extensions as ext
 
 # set env
-env = environ.get('TRACKTHEMONEY_ENV', 'local')
+env = environ.get("TRACKTHEMONEY_ENV", "local")
+
 
 def create_app(config_name):
     # Flask app object
     app = Flask(__name__)
-
 
     ext.connect_mongo()
     app.config.from_object(config[config_name])
 
     app.config.from_mapping(
         CELERY=dict(
-            broker_url=environ.get('CELERY_BROKER_URL', 'amqp://guest:guest@localhost:5672//'),
-            result_backend=environ.get('MONGO_DATABASE_URI', 'mongodb://localhost:27017/'),
-            task_ignore_result=True
+            broker_url=environ.get(
+                "CELERY_BROKER_URL", "amqp://guest:guest@localhost:5672//"
+            ),
+            result_backend=environ.get(
+                "MONGO_DATABASE_URI", "mongodb://localhost:27017/"
+            ),
+            task_ignore_result=True,
         )
     )
 
     # register blueprints
-    app.register_blueprint(auth_bp, url_prefix='/')
-    app.register_blueprint(bank_bp, url_prefix='/banks')
-    app.register_blueprint(expense_bp, url_prefix='/expenses')
-    app.register_blueprint(entry_tags_bp, url_prefix='/entry-tags')
+    app.register_blueprint(auth_bp, url_prefix="/")
+    app.register_blueprint(bank_bp, url_prefix="/banks")
+    app.register_blueprint(expense_bp, url_prefix="/expenses")
+    app.register_blueprint(entry_tags_bp, url_prefix="/entry-tags")
 
     return app
 
-if env == 'test':
-    app = create_app('test')
-elif env == 'production':
-    app = create_app('production')
+
+if env == "test":
+    app = create_app("test")
+elif env == "production":
+    app = create_app("production")
 else:
-    app = create_app('development')
+    app = create_app("development")
 
 celery_app = ext.celery_init_app(app)

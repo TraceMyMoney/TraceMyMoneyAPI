@@ -1,14 +1,16 @@
 # libraries imports
 from datetime import datetime
-from mongoengine import ( Document,
-                          StringField,
-                          FloatField,
-                          DateTimeField,
-                          ObjectIdField,
-                        )
+from mongoengine import (
+    Document,
+    StringField,
+    FloatField,
+    DateTimeField,
+    ObjectIdField,
+)
 
 # relative imports
 from src.helpers import helper
+
 
 class Bank(Document):
     name = StringField(max_length=20)
@@ -20,18 +22,17 @@ class Bank(Document):
     updated_at = DateTimeField(default=datetime.now().date())
 
     def __str__(self):
-        return f'<Bank:{self.name}>'
+        return f"<Bank:{self.name}>"
 
     @classmethod
     def get_banks(cls, current_user, **kwargs):
         banks = cls.objects(user_id=current_user.id)
-        if kwargs.get('name'):
-            banks = banks.filter(name=kwargs['name'])
-        if kwargs.get('id'):
-            banks = banks.filter(id=kwargs['id'])
+        if kwargs.get("name"):
+            banks = banks.filter(name=kwargs["name"])
+        if kwargs.get("id"):
+            banks = banks.filter(id=kwargs["id"])
 
         return banks
-
 
     def get_expenses(self):
         all_expenses = [expense.fetch() for expense in self.expenses]
@@ -48,6 +49,6 @@ class Bank(Document):
             total_disbursed_till_now = self.total_disbursed_till_now - ee_total
             self.update(
                 set__total_disbursed_till_now=total_disbursed_till_now,
-                set__current_balance=current_balalnce
+                set__current_balance=current_balalnce,
             )
             self.reload()
