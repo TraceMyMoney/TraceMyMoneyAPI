@@ -7,6 +7,7 @@ from src.constants import DATE_TIME_FORMAT
 
 class ExpenseEntryTagSchema(Schema):
     name = fields.String()
+    user_id = fields.String()
 
 
 class ExpenseEntrySchema(Schema):
@@ -25,6 +26,7 @@ class BankSchema(Schema):
     initial_balance = fields.Float()
     current_balance = fields.Float()
     total_disbursed_till_now = fields.Float()
+    user_id = fields.String()
     created_at = fields.Date(DATE_TIME_FORMAT)
     updated_at = fields.Date(DATE_TIME_FORMAT)
 
@@ -36,5 +38,6 @@ class ExpenseSchema(Schema):
     bank_name = fields.String()
     remaining_amount_till_now = fields.Float()
     expense_total = fields.Float()
+    user_id = fields.String()
     created_at = fields.Date(DATE_TIME_FORMAT)
     updated_at = fields.Date(DATE_TIME_FORMAT)
