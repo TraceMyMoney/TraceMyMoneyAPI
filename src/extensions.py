@@ -18,7 +18,7 @@ else:
     config.from_object(app_config['development'])
 
 def connect_mongo():
-    mongo_engine = connect("trackmoney_api",
+    mongo_engine = connect("trackmoney_api_backup",
                        host=config['MONGO_DATABASE_URI'])
     return mongo_engine
 

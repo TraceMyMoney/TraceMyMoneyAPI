@@ -11,27 +11,29 @@ from src.models.expense import Expense
 from src.models.bank import Bank
 from src.models.expense_entry import ExpenseEntry
 from src.schemas.schemas import ExpenseSchema
-from src.helpers import helper
+from src.helpers.authentication import token_required
 from src.models.expense_entry_tag import ExpenseEntryTag
 
 expense_bp = Blueprint('expenses', __name__)
 CORS(expense_bp, resources={r"/*": {"origins": "*"}})
 
 @expense_bp.get('/')
-def expenses():
-    expenses = Expense.get_expenses(**dict(request.args)).order_by('-created_at')
+@token_required
+def expenses(current_user):
+    expenses = Expense.get_expenses(current_user, **dict(request.args)).order_by('-created_at')
     results = ExpenseSchema().dump(expenses, many=True)
     return jsonify({
         'expenses': results
     }), 200
 
 @expense_bp.post('/create')
-def create_expense():
+@token_required
+def create_expense(current_user):
     data = loads(request.data.decode('utf-8'))
     if data.get('bank_id'):
         bank = Bank.objects(id=data.get('bank_id')).first()
         if bank:
-            expense = __create_expense_object(data, bank)
+            expense = __create_expense_object(data, bank, current_user)
             try:
                 if expense.save():
                     return jsonify({
@@ -58,14 +60,15 @@ def create_expense():
         }), 400
 
 @expense_bp.post('/create-bulk')
-def create_bulk_expenses():
+@token_required
+def create_bulk_expenses(current_user):
     records = loads(request.data.decode('utf-8'))
     valid_objects = []
     for data in records:
         if data.get('bank_id'):
             bank = Bank.objects(id=data.get('bank_id')).first()
             if bank:
-                expense = __create_expense_object(data, bank)
+                expense = __create_expense_object(data, bank, current_user)
                 valid_objects.append(expense)
             else:
                 return jsonify({
@@ -83,10 +86,11 @@ def create_bulk_expenses():
 
 # All updates regarding expenses
 @expense_bp.patch('/add-entry')
-def add_expense_entry():
+@token_required
+def add_expense_entry(current_user):
     params = request.args
     if params.get('id'):
-        expense = Expense.objects(id=params['id']).first()
+        expense = Expense.objects(id=params['id'], user_id=current_user.id).first()
         if expense:
             entry_records = [ExpenseEntry(**entry_record) for entry_record in loads(request.data.decode('utf-8'))]
             total_entry_entered = sum((entry_record.amount for entry_record in entry_records))
@@ -106,10 +110,11 @@ def add_expense_entry():
         }), 400
 
 @expense_bp.delete('/delete-entry')
-def delete_expense_entry():
+@token_required
+def delete_expense_entry(current_user):
     params = request.args
-    if params.get('id'):
-        expense = Expense.objects(id=params['id']).first()
+    if params.get('id') and params.get("ee_id"):
+        expense = Expense.objects(id=params['id'], user_id=current_user.id).first()
         if expense:
             # TODO: Make the schema validations here.
             entry_record = expense.expenses.filter(ee_id=params.get("ee_id"))[0]
@@ -126,17 +131,18 @@ def delete_expense_entry():
         }), 204
     else:
         return jsonify({
-            'error': 'Please enter the expense ID to udpate'
+            'error': 'Please enter the expense ID and entry ID to delete'
         }), 400
 
 @expense_bp.delete('/delete')
-def delete_expense():
+@token_required
+def delete_expense(current_user):
     params = dict(request.args)
     if params.get('id'):
         try:
             # TODO : validate the expense as top of stack before deletion
             # or let uesr delete any expense, but all other expenses above it, needs to be updated !
-            expense = Expense.objects(id=params.get('id')).first()
+            expense = Expense.objects(id=params.get('id'), user_id=current_user.id).first()
             if expense:
                 expense.delete()
                 return jsonify({
@@ -159,7 +165,7 @@ def delete_expense():
             'error': 'Please provide the Expense ID'
         }), 400
 
-def __create_expense_object(data, bank):
+def __create_expense_object(data, bank, current_user):
     created_at = None
     if data.get('created_at'):
         created_at = datetime.strptime(data.get('created_at'), DATE_TIME_FORMAT)
@@ -182,4 +188,4 @@ def __create_expense_object(data, bank):
                 expense_entry.expense_entry_type = entry.get('type')
             ee_list.append(expense_entry)
 
-    return Expense(bank=bank, created_at=created_at, expenses=ee_list)
+    return Expense(bank=bank, created_at=created_at, expenses=ee_list, user_id=str(current_user.id))

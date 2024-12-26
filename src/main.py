@@ -7,7 +7,8 @@ from src.config import config
 from src.blueprints.banks import bank_bp
 from src.blueprints.expenses import expense_bp
 from src.blueprints.expense_entry_tags import entry_tags_bp
-from src.signals import expense_signals
+from src.blueprints.auth import auth_bp
+from src.signals import expense_signals, user_signals
 
 # direct imports
 import src.extensions as ext
@@ -32,6 +33,7 @@ def create_app(config_name):
     )
 
     # register blueprints
+    app.register_blueprint(auth_bp, url_prefix='/')
     app.register_blueprint(bank_bp, url_prefix='/banks')
     app.register_blueprint(expense_bp, url_prefix='/expenses')
     app.register_blueprint(entry_tags_bp, url_prefix='/entry-tags')

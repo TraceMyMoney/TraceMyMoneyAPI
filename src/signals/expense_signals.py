@@ -26,7 +26,8 @@ def post_save_expense(sender, document, **kwargs):
             bank_id=str(expense_bank.id),
             expense_id=str(document.id),
             is_newly_created=kwargs.get('created'),
-            total_entry_entered=total_entry_entered
+            total_entry_entered=total_entry_entered,
+            user_id=str(document.user_id)
         )
 
 def post_bulk_insert_data(sender, documents, **kwargs):
@@ -38,7 +39,8 @@ def post_bulk_insert_data(sender, documents, **kwargs):
             bank_id=str(expense_bank.id),
             expense_id=str(document.id),
             is_newly_created=True,
-            total_entry_entered=getattr(document, 'total_entry_entered', None)
+            total_entry_entered=getattr(document, 'total_entry_entered', None),
+            user_id=str(document.user_id)
         )
 
 def post_delete_expense(sender, document, **kwargs):

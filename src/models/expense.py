@@ -6,6 +6,7 @@ from mongoengine import ( Document,
                          EmbeddedDocumentListField,
                          LazyReferenceField,
                          FloatField,
+                         ObjectIdField,
                          DENY )
 
 # relative imports
@@ -21,6 +22,7 @@ class Expense(Document):
     remaining_amount_till_now = FloatField() # TODO: write the logic for this later !
     created_at = DateTimeField(default=datetime.now().date())
     updated_at = DateTimeField(default=datetime.now().date())
+    user_id = ObjectIdField()
 
     # meta = dict(
     #     indexes=[
@@ -35,8 +37,8 @@ class Expense(Document):
         return self.bank.fetch() # concept of lazy reference field
 
     @classmethod
-    def get_expenses(cls, **kwargs):
-        expenses = cls.objects
+    def get_expenses(cls, current_user, **kwargs):
+        expenses = cls.objects(user_id=current_user.id)
         if kwargs.get('id'):
             expenses = expenses.filter(id=kwargs.get('id'))
         else:

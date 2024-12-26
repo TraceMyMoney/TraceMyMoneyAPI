@@ -4,8 +4,8 @@ from mongoengine import ( Document,
                           StringField,
                           FloatField,
                           DateTimeField,
-                          ListField,
-                          LazyReferenceField )
+                          ObjectIdField,
+                        )
 
 # relative imports
 from src.helpers import helper
@@ -14,6 +14,7 @@ class Bank(Document):
     name = StringField(max_length=20)
     initial_balance = FloatField()
     current_balance = FloatField()
+    user_id = ObjectIdField()
     total_disbursed_till_now = FloatField()
     created_at = DateTimeField(default=datetime.now().date())
     updated_at = DateTimeField(default=datetime.now().date())
@@ -22,14 +23,15 @@ class Bank(Document):
         return f'<Bank:{self.name}>'
 
     @classmethod
-    def get_banks(cls, **kwargs):
-        banks = cls.objects
+    def get_banks(cls, current_user, **kwargs):
+        banks = cls.objects(user_id=current_user.id)
         if kwargs.get('name'):
             banks = banks.filter(name=kwargs['name'])
         if kwargs.get('id'):
             banks = banks.filter(id=kwargs['id'])
 
         return banks
+
 
     def get_expenses(self):
         all_expenses = [expense.fetch() for expense in self.expenses]
