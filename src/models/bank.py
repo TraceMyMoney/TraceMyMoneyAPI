@@ -15,7 +15,6 @@ class Bank(Document):
     initial_balance = FloatField()
     current_balance = FloatField()
     total_disbursed_till_now = FloatField()
-    expenses = ListField(LazyReferenceField('Expense'))
     created_at = DateTimeField(default=datetime.now().date())
     updated_at = DateTimeField(default=datetime.now().date())
 

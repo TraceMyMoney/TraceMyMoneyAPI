@@ -28,8 +28,7 @@ def update_bank_and_expense_data(bank_id='', expense_id='', is_newly_created=Tru
                 bank_data_to_update.update(
                     set__total_disbursed_till_now=total_disbursed_till_now,
                     set__current_balance=remaining_amount_till_now,
-                    set__updated_at=datetime(*helper.provide_todays_date(str_format=False)),
-                    push__expenses=expense
+                    set__updated_at=datetime(*helper.provide_todays_date(str_format=False))
                 )
             else:
                 if total_entry_entered is not None:
