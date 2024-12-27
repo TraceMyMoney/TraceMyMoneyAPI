@@ -27,6 +27,7 @@ def login():
             token = jwt.encode(
                 {
                     "user_id": str(user.id),
+                    "user_name": user.username,
                     "exp": datetime.utcnow() + timedelta(minutes=30),
                 },
                 config.get("JWT_SECRET_KEY"),
