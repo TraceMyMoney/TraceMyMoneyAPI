@@ -29,7 +29,7 @@ def get_entry_tags(current_user):
 def create_entry_tags(current_user):
     data = loads(request.data.decode("utf-8"))
     if tag_name := data.get("name"):
-        if not ExpenseEntryTag.objects(name=tag_name).first():
+        if not ExpenseEntryTag.objects(name=tag_name, user_id=current_user.id).first():
             ee_tag = ExpenseEntryTag(user_id=current_user.id, **data)
             if ee_tag.save():
                 return (
