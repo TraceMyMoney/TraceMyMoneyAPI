@@ -54,6 +54,6 @@ def delete_entry_tags(current_user):
             ).first():
                 ee_tag.delete()
                 return jsonify({"succes": "tag deleted successfully"})
-            return jsonify({"error": "error while deleting the tag"})
-        return jsonify({"error": "please provide the correct object id"})
-    return jsonify({"error": "please provide the id"})
+            return jsonify({"error": "error while deleting the tag"}), 500
+        return jsonify({"error": "please provide the correct object id"}), 400
+    return jsonify({"error": "please provide the id"}), 400
