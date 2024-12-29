@@ -57,4 +57,4 @@ def register():
                 }
             )
     except ValidationError as e:
-        return jsonify({"errors": [{k: v.message} for k, v in e.errors.items()]})
+        return jsonify({"errors": [{k: v.message} for k, v in e.errors.items()]}), 400
