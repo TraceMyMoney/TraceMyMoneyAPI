@@ -53,7 +53,7 @@ def create_expense(current_user):
                     jsonify(
                         {"error": "You cannot replicate the expense for the same day."}
                     ),
-                    500,
+                    400,
                 )
 
             except Exception as err:

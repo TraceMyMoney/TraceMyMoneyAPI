@@ -20,7 +20,7 @@ def login():
     if not (user_name := login_details.get("username")) or not (
         user_password := login_details.get("password")
     ):
-        return jsonify({"error": "Could not verify"}), 401
+        return jsonify({"error": "Could not verify"}), 400
 
     if user := User.objects(username=user_name).first():
         if check_password_hash(user.password, user_password):
@@ -34,7 +34,7 @@ def login():
             )
             return jsonify({"token": token, "status_code": 201})
     else:
-        jsonify({"error": "Could not find the user"}), 401
+        return jsonify({"error": "Invalid username or password"}), 400
 
 
 @auth_bp.post("/register")
