@@ -1,6 +1,6 @@
 services:
   trackmoney_api:
-    image: parimalmahindrakar/track_money_api:track-money-v4
+    image: parimalmahindrakar/track_money_api:latest
     command: gunicorn -b 0.0.0.0:5010 src.main:app
     volumes:
       - .:/app
@@ -14,7 +14,7 @@ services:
       - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
 
   trackmoney_update_bank_and_expenses:
-    image: parimalmahindrakar/track_money_api:track-money-v4
+    image: parimalmahindrakar/track_money_api:latest
     command: celery -A src.main.celery_app worker -l info
     env_file:
       - .env
