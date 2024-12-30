@@ -46,9 +46,9 @@ jobs:
 
             # Step 2: Stop all containers and remove Docker images
             echo "Stopping all containers and removing images"
-            sudo docker stop $(docker ps -aq) || true
-            sudo docker rm $(docker ps -aq) || true
-            sudo docker rmi $(docker images -q) || true
+            docker stop $(docker ps -aq)
+            docker rm $(docker ps -aq)
+            docker rmi $(docker images -q)
 
             # Step 3: Clone the repository and navigate into the directory
             REPO_URL="git@github.com:parimalmahindrakar/TrackMoneyAPI.git"
@@ -57,5 +57,5 @@ jobs:
 
             # Step 4: Use docker-compose to bring up containers
             echo "Starting containers with docker-compose"
-            sudo docker-compose -f docker-compose.yaml up -d
+            docker-compose -f docker-compose.yaml up -d
           EOF
