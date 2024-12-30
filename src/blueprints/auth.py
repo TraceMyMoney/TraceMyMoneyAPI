@@ -34,7 +34,7 @@ def login():
             )
             return jsonify({"token": token, "status_code": 201})
     else:
-        return jsonify({"error": "Invalid username or password somesome"}), 400
+        return jsonify({"error": "Invalid username or password"}), 400
 
 
 @auth_bp.post("/register")
