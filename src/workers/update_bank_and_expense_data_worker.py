@@ -18,6 +18,7 @@ def update_bank_and_expense_data(
     total_entry_entered=None,
     user_id=None,
 ):
+    # Get the current user
     current_user = User.objects(id=ObjectId(user_id)).first()
     if current_user and bank_id and expense_id:
         bank = Bank.objects(id=bank_id).first()
