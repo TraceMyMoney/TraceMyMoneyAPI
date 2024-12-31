@@ -205,19 +205,11 @@ def __create_expense_object(data, bank, current_user):
     ee_list = []
     if data.get("expenses"):
         for entry in data.get("expenses"):
-            existing_tags = []
-            if entry_tags := entry.get("entry_tags"):
-                existing_tags = list(
-                    map(
-                        lambda x: str(x.name),
-                        ExpenseEntryTag.objects(id__in=entry_tags),
-                    )
-                )
             expense_entry = ExpenseEntry(
                 amount=entry.get("amount"),
                 description=entry.get("description"),
                 created_at=created_at,
-                entry_tags=existing_tags,
+                entry_tags=entry.get("selected_tags", []),
             )
 
             if entry.get("type"):
