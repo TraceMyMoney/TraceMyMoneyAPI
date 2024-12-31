@@ -4,6 +4,7 @@ from json import loads
 from flask_cors import CORS
 from datetime import datetime
 from mongoengine import NotUniqueError
+from bson import ObjectId
 
 # relative imports
 from src.constants import DATE_TIME_FORMAT
@@ -123,6 +124,28 @@ def add_expense_entry(current_user):
         return jsonify({"success": "Added expense successfully"}), 201
     else:
         return jsonify({"error": "Please enter the expense ID to udpate"}), 400
+
+
+@expense_bp.patch("/update-entry")
+@token_required
+def update_expense_entry(current_user):
+    data = loads(request.data.decode("utf-8"))
+    if data.get("expense_id") and data.get("entry_id"):
+        if selected_tags := data.get("selected_tags"):
+            try:
+                Expense.objects(
+                    id=ObjectId(data["expense_id"]),
+                    user_id=current_user.id,
+                    expenses__ee_id=data["entry_id"],
+                ).update(set__expenses__S__entry_tags=selected_tags)
+            except Exception as e:
+                return jsonify({"error": e})
+            else:
+                return jsonify({"success": "Updated expense entry successfully"}), 201
+        else:
+            return jsonify({"error": "Please provide the tags"}), 400
+    else:
+        return jsonify({"error": "Please provide expense_id and entry_id"}), 400
 
 
 @expense_bp.delete("/delete-entry")
