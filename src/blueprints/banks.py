@@ -45,7 +45,7 @@ def create_bank(current_user):
 @bank_bp.delete("/delete")
 @token_required
 def delete_bank(current_user):
-    data = loads(request.data.decode("utf-8"))
+    data = dict(request.args)
     if bank_id := data.get("bank_id"):
         if bank := Bank.objects(id=bank_id, user_id=current_user.id).first():
             if expenses := Expense.objects(
@@ -54,7 +54,7 @@ def delete_bank(current_user):
                 if expenses.count() > 0:
                     expenses.delete()
             bank.delete()
-            return jsonify({"success": "Bank deleted successfully"})
+            return jsonify({"success": "Bank deleted successfully"}), 204
         else:
             return jsonify({"error": "Bank not found with provided ID"}), 400
     else:
