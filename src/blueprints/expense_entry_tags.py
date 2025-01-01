@@ -1,5 +1,5 @@
 # libraries imports
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 from flask_cors import CORS
 from json import loads
 from bson import ObjectId
@@ -28,6 +28,11 @@ def get_entry_tags(current_user):
 @token_required
 def create_entry_tags(current_user):
     data = loads(request.data.decode("utf-8"))
+    current_app.logger.info(
+        f"\nCurrent user id : {str(current_user.id)}"
+        f"\n/create [entry-tag] : {data}"
+        f"\nFile Name: {__name__}"
+    )
     if tag_name := data.get("name"):
         if not ExpenseEntryTag.objects(name=tag_name, user_id=current_user.id).first():
             ee_tag = ExpenseEntryTag(user_id=current_user.id, **data)
@@ -47,6 +52,11 @@ def create_entry_tags(current_user):
 @token_required
 def delete_entry_tags(current_user):
     data = loads(request.data.decode("utf-8"))
+    current_app.logger.info(
+        f"\nCurrent user id : {str(current_user.id)}"
+        f"\n/delete [entry-tag] : {data}"
+        f"\nFile Name: {__name__}"
+    )
     if tag_id := data.get("id"):
         if ObjectId.is_valid(tag_id):
             if ee_tag := ExpenseEntryTag.objects(

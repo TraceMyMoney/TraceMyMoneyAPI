@@ -1,4 +1,5 @@
 # libraries imports
+from flask import current_app
 from mongoengine import signals
 
 # relative imports
@@ -25,13 +26,15 @@ def post_save_expense(sender, document, **kwargs):
 
     expense_bank = document.get_bank()  # lazy loading
     if expense_bank:
-        update_bank_and_expense_data.delay(
+        data_dict = dict(
             bank_id=str(expense_bank.id),
             expense_id=str(document.id),
             is_newly_created=kwargs.get("created"),
             total_entry_entered=total_entry_entered,
             user_id=str(document.user_id),
         )
+        current_app.logger.info(f"\nFile name: {__name__}" f"\nData Dict: {data_dict}")
+        update_bank_and_expense_data.delay(**data_dict)
 
 
 def post_bulk_insert_data(sender, documents, **kwargs):
