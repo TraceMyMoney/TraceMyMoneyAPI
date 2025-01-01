@@ -1,5 +1,5 @@
 # libraries imports
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 from json import loads
 from flask_cors import CORS
 from datetime import datetime
@@ -13,7 +13,6 @@ from src.models.bank import Bank
 from src.models.expense_entry import ExpenseEntry
 from src.schemas.schemas import ExpenseSchema
 from src.helpers.authentication import token_required
-from src.models.expense_entry_tag import ExpenseEntryTag
 
 expense_bp = Blueprint("expenses", __name__)
 CORS(expense_bp, resources={r"/*": {"origins": "*"}})
@@ -24,6 +23,11 @@ CORS(expense_bp, resources={r"/*": {"origins": "*"}})
 def expenses(current_user):
     expenses = Expense.get_expenses(current_user, **dict(request.args)).order_by(
         "-created_at"
+    )
+    current_app.logger.info(
+        f"\nCurrent user id : {str(current_user.id)}"
+        f"\nNumber of expenses retrieved : {expenses.count()}"
+        f"\nFile Name: {__name__}"
     )
     results = ExpenseSchema().dump(expenses, many=True)
     return jsonify({"expenses": results}), 200
