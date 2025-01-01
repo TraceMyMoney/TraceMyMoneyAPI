@@ -1,5 +1,5 @@
 # libraries imports
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 from flask_cors import CORS
 from json import loads
 from datetime import datetime
@@ -30,6 +30,11 @@ def banks(current_user):
 @token_required
 def create_bank(current_user):
     data = loads(request.data.decode("utf-8"))
+    current_app.logger.info(
+        f"\nCurrent user id : {str(current_user.id)}"
+        f"\n/create [bank]: {data}"
+        f"\nFile Name: {__name__}"
+    )
     if data.get("created_at"):
         data["created_at"] = datetime.strptime(data.get("created_at"), DATE_TIME_FORMAT)
 
@@ -46,6 +51,11 @@ def create_bank(current_user):
 @token_required
 def delete_bank(current_user):
     data = dict(request.args)
+    current_app.logger.info(
+        f"\nCurrent user id : {str(current_user.id)}"
+        f"\n/delete [bank] : {data}"
+        f"\nFile Name: {__name__}"
+    )
     if bank_id := data.get("bank_id"):
         if bank := Bank.objects(id=bank_id, user_id=current_user.id).first():
             if expenses := Expense.objects(

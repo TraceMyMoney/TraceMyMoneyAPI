@@ -27,7 +27,7 @@ def expenses(current_user):
     current_app.logger.info(
         f"\nCurrent user id : {str(current_user.id)}"
         f"\nNumber of expenses retrieved : {expenses.count()}"
-        f"\nFile Name: {__name__}"
+        f"\nFile Name : {__name__}"
     )
     results = ExpenseSchema().dump(expenses, many=True)
     return jsonify({"expenses": results}), 200
@@ -37,6 +37,11 @@ def expenses(current_user):
 @token_required
 def create_expense(current_user):
     data = loads(request.data.decode("utf-8"))
+    current_app.logger.info(
+        f"\nCurrent user id : {str(current_user.id)}"
+        f"\n/create [expense]: {data}"
+        f"\nFile Name : {__name__}"
+    )
     if data.get("bank_id"):
         bank = Bank.objects(id=data.get("bank_id")).first()
         if bank:
@@ -110,6 +115,11 @@ def create_bulk_expenses(current_user):
 @token_required
 def add_expense_entry(current_user):
     params = request.args
+    current_app.logger.info(
+        f"\nCurrent user id : {str(current_user.id)}"
+        f"\n/add-entry [expense]: {params}"
+        f"\nFile Name: {__name__}"
+    )
     if params.get("id"):
         expense = Expense.objects(id=params["id"], user_id=current_user.id).first()
         if expense:
@@ -134,6 +144,11 @@ def add_expense_entry(current_user):
 @token_required
 def update_expense_entry(current_user):
     data = loads(request.data.decode("utf-8"))
+    current_app.logger.info(
+        f"\nCurrent user id : {str(current_user.id)}"
+        f"\n/update-entry [expense]: {data}"
+        f"\nFile Name: {__name__}"
+    )
     if data.get("expense_id") and data.get("entry_id"):
         if selected_tags := data.get("selected_tags"):
             try:
@@ -156,6 +171,11 @@ def update_expense_entry(current_user):
 @token_required
 def delete_expense_entry(current_user):
     params = request.args
+    current_app.logger.info(
+        f"\nCurrent user id : {str(current_user.id)}"
+        f"\n/delete-entry [expense]: {params}"
+        f"\nFile Name: {__name__}"
+    )
     if params.get("id") and params.get("ee_id"):
         expense = Expense.objects(id=params["id"], user_id=current_user.id).first()
         if expense:
@@ -181,6 +201,11 @@ def delete_expense_entry(current_user):
 @token_required
 def delete_expense(current_user):
     params = dict(request.args)
+    current_app.logger.info(
+        f"\nCurrent user id : {str(current_user.id)}"
+        f"\n/delete [expense]: {params}"
+        f"\nFile Name: {__name__}"
+    )
     if params.get("id"):
         try:
             # TODO : validate the expense as top of stack before deletion
