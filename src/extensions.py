@@ -8,7 +8,7 @@ from celery import Celery, Task
 from src.config import config as app_config
 
 config = Config("")
-env = environ.get("TRACKTHEMONEY_ENV", "local").lower()
+env = environ.get("TRACKTHEMONEY_ENV", "development").lower()
 
 if env == "test":
     config.from_object(app_config["test"])

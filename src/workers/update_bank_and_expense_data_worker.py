@@ -2,6 +2,7 @@
 from celery import shared_task
 from datetime import datetime
 from bson import ObjectId
+from flask import current_app
 
 # relative imports
 from src.models.expense import Expense
@@ -20,6 +21,11 @@ def update_bank_and_expense_data(
 ):
     # Get the current user
     current_user = User.objects(id=ObjectId(user_id)).first()
+    helper.configure_logging(current_app)
+    current_app.logger.info(
+        f"\nCurrent user id : {str(current_user.id)}"\
+        f"\nFile name: {__name__}"
+    )
     if current_user and bank_id and expense_id:
         bank = Bank.objects(id=bank_id).first()
         expense = Expense.objects(id=expense_id).first()
@@ -75,12 +81,12 @@ def update_bank_and_expense_data(
                             ),
                             bank_name=bank.name,
                         ),
-                        current_user=current_user
+                        current_user=current_user,
                     )[1:]
                     if upper_expenses:
                         upper_expenses.update(
                             **{"inc__remaining_amount_till_now": -total_entry_entered},
-                            multi=True
+                            multi=True,
                         )
 
             expense.update(**expense_data_to_update)
