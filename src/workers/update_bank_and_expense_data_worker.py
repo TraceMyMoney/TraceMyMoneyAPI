@@ -26,15 +26,10 @@ def update_bank_and_expense_data(
         f"\nCurrent user id : {str(current_user.id)}" f"\nFile name: {__name__}"
     )
     if current_user and bank_id and expense_id:
-        bank = Bank.objects(id=bank_id).first()
-        expense = Expense.objects(id=expense_id).first()
-        previous_expense = (
-            Expense.objects(
-                created_at__lt=expense.created_at, bank=bank.id, user_id=current_user.id
-            )
-            .order_by("-created_at")
-            .first()
-        )
+        bank = Bank.objects(id=bank_id, user_id=current_user.id).first()
+        expense = Expense.objects(
+            id=expense_id, user_id=current_user.id, bank=bank.id
+        ).first()
         above_expenses = Expense.objects(
             created_at__gt=expense.created_at, bank=bank.id, user_id=current_user.id
         ).order_by("-created_at")
@@ -42,14 +37,25 @@ def update_bank_and_expense_data(
         if bank and expense:
             expense_data_to_update = {}
             bank_data_to_update = {}
-            if previous_expense:
-                amount_from_which_deducted_from = (
-                    previous_expense.remaining_amount_till_now
-                )
-            else:
-                amount_from_which_deducted_from = bank.current_balance
+            update_above_expenses = {}
 
             if is_newly_created:
+                previous_expense = (
+                    Expense.objects(
+                        created_at__lt=expense.created_at,
+                        bank=bank.id,
+                        user_id=current_user.id,
+                    )
+                    .order_by("-created_at")
+                    .first()
+                )
+                if previous_expense:
+                    amount_from_which_deducted_from = (
+                        previous_expense.remaining_amount_till_now
+                    )
+                else:
+                    amount_from_which_deducted_from = bank.current_balance
+
                 total_disbursed_till_now = (
                     bank.total_disbursed_till_now + expense.expense_total
                 )
@@ -68,11 +74,9 @@ def update_bank_and_expense_data(
                         *helper.provide_todays_date(str_format=False)
                     ),
                 )
-                if above_expenses:
-                    above_expenses.update(
-                        **{"inc__remaining_amount_till_now": -(expense.expense_total)},
-                        multi=True,
-                    )
+                update_above_expenses = {
+                    "inc__remaining_amount_till_now": -(expense.expense_total)
+                }
             else:
                 if total_entry_entered is not None:
                     expense_data_to_update.update(
@@ -89,21 +93,15 @@ def update_bank_and_expense_data(
                         ),
                         set__current_balance=bank.current_balance - total_entry_entered,
                     )
-                    upper_expenses = Expense.get_expenses(
-                        **dict(
-                            start_date=helper.provide_todays_date(
-                                provided_date=expense.created_at
-                            ),
-                            bank_name=bank.name,
-                        ),
-                        current_user=current_user,
-                    )[1:]
-                    if upper_expenses:
-                        upper_expenses.update(
-                            **{"inc__remaining_amount_till_now": -total_entry_entered},
-                            multi=True,
-                        )
+                    update_above_expenses = {
+                        "inc__remaining_amount_till_now": -(total_entry_entered)
+                    }
 
+            if above_expenses:
+                above_expenses.update(
+                    **update_above_expenses,
+                    multi=True,
+                )
             expense.update(**expense_data_to_update)
             bank.update(**bank_data_to_update)
             bank.reload()
