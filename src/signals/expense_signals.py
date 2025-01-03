@@ -55,7 +55,11 @@ def post_delete_expense(sender, document, **kwargs):
     expense_bank = document.get_bank()  # lazy loading
     # After removing the specified expense, it's necessary to include its total in the
     # remaining_amount_till_now for the records whose creation time greater that of the given document.
-    if expenses := Expense.objects(created_at__gte=document.created_at):
+    if expenses := Expense.objects(
+        created_at__gt=document.created_at,
+        bank=document.get_bank().id,
+        user_id=document.user_id,
+    ):
         expenses.update(inc__remaining_amount_till_now=document.expense_total)
     if expense_bank:
         expense_bank.update_bank_data_after_expense_deletion(document)
