@@ -21,16 +21,18 @@ CORS(expense_bp, resources={r"/*": {"origins": "*"}})
 @expense_bp.get("/")
 @token_required
 def expenses(current_user):
-    expenses = Expense.get_expenses(current_user, **dict(request.args)).order_by(
-        "-created_at"
-    )
+    expenses, total_expenses = Expense.get_expenses(current_user, **dict(request.args))
     current_app.logger.info(
         f"\nCurrent user id : {str(current_user.id)}"
         f"\nNumber of expenses retrieved : {expenses.count()}"
         f"\nFile Name : {__name__}"
     )
     results = ExpenseSchema().dump(expenses, many=True)
-    return jsonify({"expenses": results}), 200
+    results.append({"total_expenses": total_expenses})
+    return (
+        jsonify({"expenses": results}),
+        200,
+    )
 
 
 @expense_bp.post("/create")
