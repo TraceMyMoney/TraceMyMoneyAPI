@@ -5,7 +5,6 @@ from flask_cors import CORS
 from datetime import datetime
 from mongoengine import NotUniqueError
 from bson import ObjectId
-from functools import reduce
 
 # relative imports
 from src.constants import DATE_TIME_FORMAT
@@ -26,7 +25,7 @@ def expenses(current_user):
     payload = {}
     if request_data := request_args.pop("data", None):
         payload = loads(request_data)
-    expenses, total_expenses = Expense.get_expenses(
+    expenses, total_expenses, total_summation = Expense.get_expenses(
         current_user, **request_args, **payload
     )
     current_app.logger.info(
@@ -38,11 +37,7 @@ def expenses(current_user):
     results.extend(
         [
             {"total_expenses": total_expenses},
-            # {
-            #     "total_summation": reduce(
-            #         lambda total, doc: doc["expense_total"], results
-            #     )
-            # },
+            {"total_summation": total_summation},
         ]
     )
 
