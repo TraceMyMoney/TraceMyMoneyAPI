@@ -11,6 +11,7 @@ from mongoengine import (
     ObjectIdField,
     DENY,
 )
+from functools import reduce
 
 # relative imports
 from src.constants import DATE_TIME_FORMAT
@@ -49,7 +50,12 @@ class Expense(Document):
                 search_with_OR.append({"expenses.entry_tags": {"$in": search_by_tags}})
             if search_by_keyword := kwargs.get("search_by_keyword"):
                 search_with_OR.append(
-                    {"expenses.description": {"$regex": search_by_keyword}}
+                    {
+                        "expenses.description": {
+                            "$regex": search_by_keyword,
+                            "$options": "i",
+                        }
+                    }
                 )
             if search_by_bank_ids := kwargs.get("search_by_bank_ids"):
                 objectified_bank_ids = list(
@@ -103,7 +109,13 @@ class Expense(Document):
                 ]
             )
         )
+        paginated_expenses = expenses[
+            (page_number - 1) * per_page : per_page * page_number
+        ]
         return (
-            expenses[(page_number - 1) * per_page : per_page * page_number],
+            paginated_expenses,
             len(expenses),
+            reduce(
+                lambda total, doc: total + doc["expense_total"], paginated_expenses, 0
+            ),
         )
