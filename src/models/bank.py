@@ -34,15 +34,6 @@ class Bank(Document):
 
         return banks
 
-    def get_expenses(self):
-        all_expenses = [expense.fetch() for expense in self.expenses]
-        return sorted(all_expenses, key=lambda e: e.created_at)
-
-    def store_remaining_amount(self):
-        sorted_expenses = self.get_expenses()
-        for expense in sorted_expenses:
-            self.update_bank_and_expense_data(expense)
-
     def update_bank_data_after_expense_deletion(self, expense):
         if ee_total := expense.expense_total:
             current_balalnce = self.current_balance + ee_total

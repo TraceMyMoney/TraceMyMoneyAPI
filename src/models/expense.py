@@ -42,34 +42,68 @@ class Expense(Document):
         # TODO: Make the default page_number and per_page as constants
         page_number = int(kwargs.get("page_number", 1))
         per_page = int(kwargs.get("per_page", 5))
-        expenses = cls.objects(
-            user_id=current_user.id, bank=ObjectId(kwargs.get("bank_id"))
-        )
-        total_expenses = expenses.count()
-        if kwargs.get("id"):
-            expenses = expenses.filter(id=kwargs.get("id"))
-        else:
-            if kwargs.get("created_at"):
-                expenses = expenses.filter(
-                    created_at=datetime.strptime(
-                        kwargs.get("created_at"), DATE_TIME_FORMAT
-                    )
+        search_matcher = {}
+        if kwargs.get("advanced_search", False):
+            search_with_OR = []
+            if search_by_tags := kwargs.get("search_by_tags"):
+                search_with_OR.append({"expenses.entry_tags": {"$in": search_by_tags}})
+            if search_by_keyword := kwargs.get("search_by_keyword"):
+                search_with_OR.append(
+                    {"expenses.description": {"$regex": search_by_keyword}}
                 )
-            elif kwargs.get("start_date"):
-                dict_ = {
-                    "created_at__gte": datetime.strptime(
-                        kwargs.get("start_date"), DATE_TIME_FORMAT
-                    )
+            if search_by_bank_ids := kwargs.get("search_by_bank_ids"):
+                objectified_bank_ids = list(
+                    map(lambda x: ObjectId(x), search_by_bank_ids)
+                )
+                search_with_OR.append(
+                    {"bank": {"$in": objectified_bank_ids}},
+                )
+            if search_by_daterange := kwargs.get("search_by_daterange"):
+                objectified_daterange = {
+                    "created_at": {
+                        "$gte": datetime.strptime(
+                            search_by_daterange["start_date"], DATE_TIME_FORMAT
+                        )
+                    }
                 }
-                if kwargs.get("end_date"):
-                    dict_["created_at__lte"] = datetime.strptime(
-                        kwargs.get("end_date"), DATE_TIME_FORMAT
+                if search_by_daterange.get("end_date"):
+                    objectified_daterange["created_at"]["$lte"] = datetime.strptime(
+                        search_by_daterange["end_date"], DATE_TIME_FORMAT
                     )
-                expenses = expenses.filter(**dict_).order_by("created_at")
+                search_with_OR.append(objectified_daterange)
 
-            if kwargs.get("bank_name"):
-                expenses = expenses.filter(bank_name=kwargs.get("bank_name"))
+            if operator := kwargs.get("operator"):
+                search_matcher = {f"${operator}": search_with_OR}
 
-        return expenses.order_by("-created_at")[
-            (page_number - 1) * per_page : per_page * page_number
-        ], total_expenses
+        else:
+            search_matcher.update(bank=ObjectId(kwargs.get("bank_id")))
+
+        expenses = list(
+            cls.objects.aggregate(
+                [
+                    {"$match": search_matcher},
+                    {"$unwind": "$expenses"},
+                    {"$match": search_matcher},
+                    {
+                        "$group": {
+                            "_id": "$_id",
+                            "id": {"$first": "$_id"},
+                            "created_at": {"$first": "$created_at"},
+                            "day": {"$first": "$day"},
+                            "expense_total": {"$sum": "$expenses.amount"},
+                            "remaining_amount_till_now": {
+                                "$first": "$remaining_amount_till_now"
+                            },
+                            "user_id": {"$first": "$user_id"},
+                            "bank_name": {"$first": "$bank_name"},
+                            "expenses": {"$push": "$expenses"},
+                        }
+                    },
+                    {"$sort": {"created_at": -1}},
+                ]
+            )
+        )
+        return (
+            expenses[(page_number - 1) * per_page : per_page * page_number],
+            len(expenses),
+        )
