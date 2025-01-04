@@ -21,10 +21,15 @@ CORS(expense_bp, resources={r"/*": {"origins": "*"}})
 @expense_bp.get("/")
 @token_required
 def expenses(current_user):
-    expenses, total_expenses = Expense.get_expenses(current_user, **dict(request.args))
+    payload = {}
+    if request.data:
+        payload = loads(request.data.decode("utf-8"))
+    expenses, total_expenses = Expense.get_expenses(
+        current_user, **dict(request.args), **payload
+    )
     current_app.logger.info(
         f"\nCurrent user id : {str(current_user.id)}"
-        f"\nNumber of expenses retrieved : {expenses.count()}"
+        f"\nNumber of expenses retrieved : {len(expenses)}"
         f"\nFile Name : {__name__}"
     )
     results = ExpenseSchema().dump(expenses, many=True)
