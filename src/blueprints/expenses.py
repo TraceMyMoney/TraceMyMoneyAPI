@@ -5,6 +5,7 @@ from flask_cors import CORS
 from datetime import datetime
 from mongoengine import NotUniqueError
 from bson import ObjectId
+from functools import reduce
 
 # relative imports
 from src.constants import DATE_TIME_FORMAT
@@ -21,11 +22,12 @@ CORS(expense_bp, resources={r"/*": {"origins": "*"}})
 @expense_bp.get("/")
 @token_required
 def expenses(current_user):
+    request_args = dict(request.args)
     payload = {}
-    if request.data:
-        payload = loads(request.data.decode("utf-8"))
+    if request_data := request_args.pop("data", None):
+        payload = loads(request_data)
     expenses, total_expenses = Expense.get_expenses(
-        current_user, **dict(request.args), **payload
+        current_user, **request_args, **payload
     )
     current_app.logger.info(
         f"\nCurrent user id : {str(current_user.id)}"
@@ -33,7 +35,17 @@ def expenses(current_user):
         f"\nFile Name : {__name__}"
     )
     results = ExpenseSchema().dump(expenses, many=True)
-    results.append({"total_expenses": total_expenses})
+    results.extend(
+        [
+            {"total_expenses": total_expenses},
+            # {
+            #     "total_summation": reduce(
+            #         lambda total, doc: doc["expense_total"], results
+            #     )
+            # },
+        ]
+    )
+
     return (
         jsonify({"expenses": results}),
         200,
