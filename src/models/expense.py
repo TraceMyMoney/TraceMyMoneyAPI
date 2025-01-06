@@ -82,7 +82,7 @@ class Expense(Document):
         else:
             search_with_operator.append({"bank": ObjectId(kwargs.get("bank_id"))})
 
-        search_matcher = {f"${kwargs.get('operator', 'or')}": search_with_operator}
+        search_matcher = {f"${kwargs.get('operator', 'and')}": search_with_operator}
         expenses = list(
             cls.objects.aggregate(
                 [
