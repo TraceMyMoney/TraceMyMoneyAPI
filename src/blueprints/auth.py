@@ -33,6 +33,8 @@ def login():
                 config.get("JWT_SECRET_KEY"),
             )
             return jsonify({"token": token, "status_code": 201})
+        else:
+            return jsonify({"error": "Invalid username or password"}), 400
     else:
         return jsonify({"error": "Invalid username or password"}), 400
 
