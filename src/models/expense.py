@@ -44,12 +44,14 @@ class Expense(Document):
         page_number = int(kwargs.get("page_number", 1))
         per_page = int(kwargs.get("per_page", 5))
         search_matcher = {}
+        search_with_operator = [{"user_id": current_user.id}]
         if kwargs.get("advanced_search", False):
-            search_with_OR = []
             if search_by_tags := kwargs.get("search_by_tags"):
-                search_with_OR.append({"expenses.entry_tags": {"$in": search_by_tags}})
+                search_with_operator.append(
+                    {"expenses.entry_tags": {"$in": search_by_tags}}
+                )
             if search_by_keyword := kwargs.get("search_by_keyword"):
-                search_with_OR.append(
+                search_with_operator.append(
                     {
                         "expenses.description": {
                             "$regex": search_by_keyword,
@@ -61,7 +63,7 @@ class Expense(Document):
                 objectified_bank_ids = list(
                     map(lambda x: ObjectId(x), search_by_bank_ids)
                 )
-                search_with_OR.append(
+                search_with_operator.append(
                     {"bank": {"$in": objectified_bank_ids}},
                 )
             if search_by_daterange := kwargs.get("search_by_daterange"):
@@ -76,14 +78,11 @@ class Expense(Document):
                     objectified_daterange["created_at"]["$lte"] = datetime.strptime(
                         search_by_daterange["end_date"], DATE_TIME_FORMAT
                     )
-                search_with_OR.append(objectified_daterange)
-
-            if operator := kwargs.get("operator"):
-                search_matcher = {f"${operator}": search_with_OR}
-
+                search_with_operator.append(objectified_daterange)
         else:
-            search_matcher.update(bank=ObjectId(kwargs.get("bank_id")))
+            search_with_operator.append({"bank": ObjectId(kwargs.get("bank_id"))})
 
+        search_matcher = {f"${kwargs.get('operator', 'or')}": search_with_operator}
         expenses = list(
             cls.objects.aggregate(
                 [
