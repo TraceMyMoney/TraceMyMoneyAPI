@@ -41,10 +41,18 @@ def login():
 def register():
     user_details = loads(request.data.decode("utf-8"))
     if User.objects(
-        username=user_details.get("username"), email=user_details.get("email")
+        __raw__={
+            "$or": [
+                {"username": user_details.get("username")},
+                {"email": user_details.get("email")},
+            ]
+        }
     ).first():
-        return jsonify(
-            {"errors": "User already exists either with given username or email"}
+        return (
+            jsonify(
+                {"error": "User already exists either with given username or email"}
+            ),
+            400,
         )
     try:
         user = User(**user_details)
