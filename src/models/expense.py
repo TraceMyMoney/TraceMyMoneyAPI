@@ -95,7 +95,24 @@ class Expense(Document):
                             "id": {"$first": "$_id"},
                             "created_at": {"$first": "$created_at"},
                             "day": {"$first": "$day"},
-                            "expense_total": {"$sum": "$expenses.amount"},
+                            "expense_total": {
+                                "$sum": {
+                                    "$cond": [
+                                        {"$gt": ["$expenses.amount", 0]},
+                                        "$expenses.amount",
+                                        0,
+                                    ]
+                                }
+                            },
+                            "topup_expense_total": {
+                                "$sum": {
+                                    "$cond": [
+                                        {"$lt": ["$expenses.amount", 0]},
+                                        "$expenses.amount",
+                                        0,
+                                    ]
+                                }
+                            },
                             "remaining_amount_till_now": {
                                 "$first": "$remaining_amount_till_now"
                             },

@@ -38,6 +38,7 @@ class ExpenseSchema(Schema):
     bank_name = fields.String()
     remaining_amount_till_now = fields.Float()
     expense_total = fields.Float()
+    topup_expense_total = fields.Float()
     user_id = fields.String()
     created_at = fields.Date(DATE_TIME_FORMAT)
     updated_at = fields.Date(DATE_TIME_FORMAT)
