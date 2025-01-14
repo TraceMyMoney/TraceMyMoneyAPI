@@ -19,7 +19,7 @@ else:
 
 
 def connect_mongo():
-    mongo_engine = connect("trackmoney_api", host=config["MONGO_DATABASE_URI"])
+    mongo_engine = connect(config["MONGO_DATABASE"], host=config["MONGO_DATABASE_URI"])
     return mongo_engine
 
 

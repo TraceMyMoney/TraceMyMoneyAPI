@@ -16,7 +16,7 @@ class Bank(Document):
     name = StringField(max_length=20)
     initial_balance = FloatField()
     current_balance = FloatField()
-    user_id = ObjectIdField()
+    user_id = ObjectIdField(required=True)
     total_disbursed_till_now = FloatField()
     created_at = DateTimeField(default=datetime.now().date())
     updated_at = DateTimeField(default=datetime.now().date())
