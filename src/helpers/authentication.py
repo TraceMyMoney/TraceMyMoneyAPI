@@ -13,7 +13,7 @@ def token_required(f):
         if "x-access-token" in request.headers:
             token = request.headers["x-access-token"]
         if not token:
-            return jsonify({"message": "Token is missing"}), 401
+            return jsonify({"error": "Token is missing"}), 401
         try:
             data = jwt.decode(token, config["JWT_SECRET_KEY"], algorithms=["HS256"])
             current_user = User.objects(id=data["user_id"]).first()

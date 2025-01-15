@@ -11,13 +11,15 @@ class BankFactory:
 
     @staticmethod
     def get_bank(
+        user_id,
+        bank_id=None,
         name=TEST_BANK_NAME,
         initial_balance=1000,
         current_balance=1000,
         total_disbursed_till_now=0,
-        user_id=TEST_USER_ID,
     ):
         return Bank(
+            id=bank_id or ObjectId(),
             name=name,
             initial_balance=initial_balance,
             current_balance=current_balance,

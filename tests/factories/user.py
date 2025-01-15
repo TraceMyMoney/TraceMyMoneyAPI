@@ -1,3 +1,5 @@
+from bson import ObjectId
+
 # src imports
 from src.models.user import User
 
@@ -14,7 +16,7 @@ class UserFactory:
 
     @staticmethod
     def get_user(
-        _id=TEST_USER_ID,
+        _id=TEST_USER_ID or ObjectId(),
         username=TEST_USER_NAME,
         email=TEST_USER_EMAIL,
         password=TEST_USER_PASSWORD,
