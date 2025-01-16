@@ -13,11 +13,11 @@ from src.helpers import helper
 
 
 class Bank(Document):
-    name = StringField(max_length=20)
-    initial_balance = FloatField()
-    current_balance = FloatField()
+    name = StringField(max_length=20, required=True)
+    initial_balance = FloatField(required=True)
+    current_balance = FloatField(required=True)
     user_id = ObjectIdField(required=True)
-    total_disbursed_till_now = FloatField()
+    total_disbursed_till_now = FloatField(required=True)
     created_at = DateTimeField(default=datetime.now().date())
     updated_at = DateTimeField(default=datetime.now().date())
 

@@ -1,4 +1,4 @@
-import pytest
+import pytest, json
 from hamcrest import is_, assert_that
 from deepdiff import DeepDiff
 from bson import ObjectId
@@ -38,7 +38,7 @@ class TestBankBP:
             "Content-Type": "application/json",
         }
         return self.testapp.post(
-            "/banks/", headers=headers, params=params, expect_errors=True
+            "/banks/create", headers=headers, params=params, expect_errors=True
         )
 
     def test_get_banks_with_no_data_available_with_incorrect_auth(self, jwt_token):
@@ -109,3 +109,42 @@ class TestBankBP:
         assert_that(response.status_code, is_(200))
         for bank in response.json["banks"]:
             assert_that(DeepDiff(expected_result, bank), is_({}))
+
+    def test_create_bank_without_created_at(self):
+        data = {
+            "name": "TestBank1",
+            "initial_balance": 10000,
+            "current_balance": 10000,
+            "total_disbursed_till_now": 0,
+        }
+        response = self.post_banks_api_call(self.api_token, params=json.dumps(data))
+        assert_that(response.status_code, is_(200))
+        assert_that(response.json["success"], is_("Bank object saved successfully"))
+
+    def test_create_bank_with_created_at(self):
+        data = {
+            "name": "TestBank1",
+            "initial_balance": 10000,
+            "current_balance": 10000,
+            "total_disbursed_till_now": 0,
+            "created_at": provide_todays_date(),
+        }
+        response = self.post_banks_api_call(self.api_token, params=json.dumps(data))
+        assert_that(response.status_code, is_(200))
+        assert_that(response.json["success"], is_("Bank object saved successfully"))
+
+    def test_create_bank_without_any_fields(self):
+        data = {}
+        response = self.post_banks_api_call(self.api_token, params=json.dumps(data))
+        assert_that(response.status_code, is_(400))
+        required_fields = [
+            "name",
+            "initial_balance",
+            "current_balance",
+            "total_disbursed_till_now",
+        ]
+        for item, index in zip(response.json["error"], range(0, len(required_fields))):
+            assert_that(item[0], is_(required_fields[index]))
+            assert_that(item[1], is_("Field is required"))
+
+    # TODO: write the test case for delting the bank
