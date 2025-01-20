@@ -1,11 +1,11 @@
 services:
   trackmoney_api:
     image: parimalmahindrakar/track_money_api:latest
-    command: gunicorn -w 1 --bind 0.0.0.0:4653 wsgi:app
+    command: gunicorn -w 1 --bind 0.0.0.0:5000 wsgi:app
     volumes:
       - .:/app
     ports:
-      - 4653:4653
+      - 5000:5000
     env_file:
       - ./env/.env.prod
 
