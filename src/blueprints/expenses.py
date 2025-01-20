@@ -180,7 +180,10 @@ def update_expense_entry(current_user):
                     id=ObjectId(data["expense_id"]),
                     user_id=current_user.id,
                     expenses__ee_id=data["entry_id"],
-                ).update(set__expenses__S__entry_tags=selected_tags)
+                ).update(
+                    set__expenses__S__entry_tags=selected_tags,
+                    set__expenses__S__description=data.get("description")
+                )
             except Exception as e:
                 return jsonify({"error": e})
             else:
