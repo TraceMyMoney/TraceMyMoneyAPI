@@ -8,6 +8,8 @@ services:
       - 5000:5000
     env_file:
       - ./env/.env.prod
+    networks:
+      - my_network
 
   trackmoney_update_bank_and_expenses:
     image: parimalmahindrakar/track_money_api:latest
@@ -19,6 +21,8 @@ services:
       restart_policy:
         condition: on-failure
         delay: 5s
+    networks:
+      - my_network
 
   rabbitmq:
     image: "rabbitmq:3-management"
@@ -26,3 +30,19 @@ services:
     ports:
       - "5672:5672"
       - "15672:15672"
+    networks:
+      - my_network
+
+  nginx:
+    image: parimalmahindrakar/tracemymoney_nginx:latest
+    container_name: tm_nginx_server
+    ports:
+      - "80:80"
+    depends_on:
+      - trackmoney_api
+    networks:
+      - my_network
+
+networks:
+  my_network:
+    driver: bridge
