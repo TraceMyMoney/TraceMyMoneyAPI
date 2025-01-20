@@ -59,7 +59,17 @@ def create_expense(current_user):
     if data.get("bank_id"):
         bank = Bank.objects(id=data.get("bank_id")).first()
         if bank:
-            expense = __create_expense_object(data, bank, current_user)
+            if data.get("expenses"):
+                expense = __create_expense_object(data, bank, current_user)
+            else:
+                return (
+                    jsonify(
+                        {
+                            "error": "Atleast one expense entry should be present while creating the expense"
+                        }
+                    ),
+                    400,
+                )
             try:
                 if expense.save():
                     return (
@@ -170,7 +180,10 @@ def update_expense_entry(current_user):
                     id=ObjectId(data["expense_id"]),
                     user_id=current_user.id,
                     expenses__ee_id=data["entry_id"],
-                ).update(set__expenses__S__entry_tags=selected_tags)
+                ).update(
+                    set__expenses__S__entry_tags=selected_tags,
+                    set__expenses__S__description=data.get("description")
+                )
             except Exception as e:
                 return jsonify({"error": e})
             else:

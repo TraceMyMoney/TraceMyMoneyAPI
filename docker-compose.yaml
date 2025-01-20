@@ -1,19 +1,19 @@
 services:
   trackmoney_api:
     image: parimalmahindrakar/track_money_api:latest
-    command: gunicorn -w 1 --bind 0.0.0.0:5010 wsgi:app
+    command: gunicorn -w 1 --bind 0.0.0.0:5000 wsgi:app
     volumes:
       - .:/app
     ports:
-      - 5010:5010
+      - 5000:5000
     env_file:
-      - .env.prod
+      - ./env/.env.prod
 
   trackmoney_update_bank_and_expenses:
     image: parimalmahindrakar/track_money_api:latest
     command: celery -A wsgi.celery_app worker -l info
     env_file:
-      - .env.prod
+      - ./env/.env.prod
     deploy:
       replicas: 1
       restart_policy:

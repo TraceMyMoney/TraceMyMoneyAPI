@@ -42,7 +42,10 @@ def create_bank(current_user):
         if Bank(user_id=current_user.id, **data).save():
             return jsonify({"success": "Bank object saved successfully"})
     except ValidationError as err:
-        return jsonify({"error": [obj.message for _, obj in err.errors.items()]}), 400
+        return (
+            jsonify({"error": [(_, obj.message) for _, obj in err.errors.items()]}),
+            400,
+        )
     except Exception as err:
         return jsonify({"error": "Error while saving the bank object"})
 
