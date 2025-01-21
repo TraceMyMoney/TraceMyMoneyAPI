@@ -9,6 +9,14 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
 
+    services:
+      mongo:
+        image: mongo:8
+        ports:
+          - 27017:27017
+        options: >
+          --auth
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -23,11 +31,28 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Configure MongoDB User
+        run: |
+          mongod --fork --logpath /var/log/mongodb.log --auth
+          sleep 5
+          mongosh admin --eval "db.createUser({ user: 'admin', pwd: 'jKFLXJCoGgsVCoiO', roles: [{ role: 'root', db: 'admin' }] })"
+
       - name: Set environment variables for testing
         run: |
           set -a
           source ./env/.test_env
           set +a
+
+      - name: Wait for MongoDB to be ready
+        run: |
+          for i in {1..10}; do
+            if mongosh --username admin --password jKFLXJCoGgsVCoiO --eval "db.runCommand({ ping: 1 })" > /dev/null 2>&1; then
+              echo "MongoDB is ready";
+              break;
+            fi
+            echo "Waiting for MongoDB...";
+            sleep 3;
+          done
 
       - name: Run pytest
         run: |
