@@ -34,7 +34,10 @@ def post_save_expense(sender, document, **kwargs):
             user_id=str(document.user_id),
         )
         current_app.logger.info(f"\nFile name: {__name__}" f"\nData Dict: {data_dict}")
-        update_bank_and_expense_data.delay(**data_dict)
+        try:
+            update_bank_and_expense_data.delay(**data_dict)
+        except Exception as e:
+            current_app.logger.error(f"\nError: {e}")
 
 
 def post_bulk_insert_data(sender, documents, **kwargs):
