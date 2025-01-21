@@ -7,7 +7,7 @@ services:
     ports:
       - 5000:5000
     env_file:
-      - ./env/.env.prod
+      - ../env/.env.prod
     networks:
       - my_network
 
@@ -15,7 +15,7 @@ services:
     image: parimalmahindrakar/track_money_api:latest
     command: celery -A wsgi.celery_app worker -l info
     env_file:
-      - ./env/.env.prod
+      - ../env/.env.prod
     deploy:
       replicas: 1
       restart_policy:
