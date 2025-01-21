@@ -22,17 +22,6 @@ def setup_db():
 
 
 @pytest.fixture(autouse=True)
-def drop_collections():
-    yield
-    mongo_engine = connect_mongo()
-    collections = mongo_engine.get_database(
-        config["MONGO_DATABASE"]
-    ).list_collections_names()
-    for collection in collections:
-        mongo_engine[config["MONGO_DATABASE"]][collection].delete_many()
-
-
-@pytest.fixture(autouse=True)
 def drop_db():
     yield
     mongo_engine = connect_mongo()
