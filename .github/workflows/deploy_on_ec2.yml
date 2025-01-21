@@ -26,7 +26,7 @@ jobs:
       - name: Set environment variables for testing
         run: |
           set -a
-          source ../../env/.test_env
+          source ./env/.test_env
           set +a
 
       - name: Run pytest
