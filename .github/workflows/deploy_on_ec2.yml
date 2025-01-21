@@ -8,20 +8,7 @@ on:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-
-    services:
-      mongo:
-        image: mongo
-        ports:
-          - 27017:27017
-        env:
-          MONGO_INITDB_ROOT_USERNAME: admin
-          MONGO_INITDB_ROOT_PASSWORD: jKFLXJCoGgsVCoiO
-        options: >-
-          --health-cmd mongo
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -36,20 +23,18 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Start MongoDB
+        uses: supercharge/mongodb-github-action@1.12.0
+        with:
+          mongodb-version: '8' 
+          mongodb-root-username: admin
+          mongodb-root-password: jKFLXJCoGgsVCoiO 
+
       - name: Set environment variables for testing
         run: |
           set -a
           source ./env/.test_env
           set +a
-
-      - name: Wait for MongoDB to be ready
-        run: |
-          echo "Waiting for MongoDB to be ready..."
-          while ! docker exec $(docker ps -qf "ancestor=mongo:8") mongo --username admin --password jKFLXJCoGgsVCoiO --authenticationDatabase admin --eval "db.runCommand({ ping: 1 })" > /dev/null 2>&1; do
-            echo "MongoDB is not ready yet, waiting...";
-            sleep 3;
-          done
-          echo "MongoDB is ready!"
 
       - name: Run pytest
         run: |
