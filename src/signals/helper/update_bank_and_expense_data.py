@@ -11,7 +11,6 @@ from src.models.user import User
 from src.helpers import helper
 
 
-@shared_task(ignore_result=False)
 def update_bank_and_expense_data(
     bank_id="",
     expense_id="",

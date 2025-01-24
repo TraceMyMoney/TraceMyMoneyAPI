@@ -4,7 +4,7 @@ from mongoengine import signals
 
 # relative imports
 from src.models.expense import Expense
-from src.workers.update_bank_and_expense_data_worker import update_bank_and_expense_data
+from src.signals.helper import update_bank_and_expense_data
 
 
 def pre_save_expense(sender, document, **kwargs):
@@ -35,14 +35,14 @@ def post_save_expense(sender, document, **kwargs):
         )
         current_app.logger.info(f"\nFile name: {__name__}" f"\nData Dict: {data_dict}")
         try:
-            update_bank_and_expense_data.delay(**data_dict)
+            update_bank_and_expense_data(**data_dict)
         except Exception as e:
             current_app.logger.error(f"\nError: {e}")
 
 
 def post_bulk_insert_data(sender, documents, **kwargs):
     for document in documents:
-        # TODO: redis caching, optimization
+        # TODO: Refactor this
         expense_bank = document.get_bank()  # lazy loading
         if expense_bank:
             update_bank_and_expense_data.delay(
