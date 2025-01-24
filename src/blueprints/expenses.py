@@ -71,7 +71,10 @@ def create_expense(current_user):
                     400,
                 )
             try:
-                if expense.save():
+                if (
+                    not Expense.objects(created_at=expense.created_at).first()
+                    and expense.save()
+                ):
                     return (
                         jsonify(
                             {
@@ -81,11 +84,20 @@ def create_expense(current_user):
                         ),
                         201,
                     )
+                else:
+                    return (
+                        jsonify(
+                            {
+                                "error": "You cannot replicate the expense for the same day"
+                            }
+                        ),
+                        400,
+                    )
 
             except NotUniqueError as err:
                 return (
                     jsonify(
-                        {"error": "You cannot replicate the expense for the same day."}
+                        {"error": "You cannot replicate the expense for the same day"}
                     ),
                     400,
                 )
@@ -97,16 +109,16 @@ def create_expense(current_user):
                             "error": (
                                 err.message
                                 if hasattr(err, "message")
-                                else "Default Error"
+                                else "Default error"
                             )
                         }
                     ),
                     500,
                 )
         else:
-            return jsonify({"error": "bank not found for the corresponding id"}), 400
+            return jsonify({"error": "Bank not found for the corresponding id"}), 400
     else:
-        return jsonify({"error": "please provide bank_id"}), 400
+        return jsonify({"error": "Please provide bank_id"}), 400
 
 
 @expense_bp.post("/create-bulk")
@@ -182,7 +194,7 @@ def update_expense_entry(current_user):
                     expenses__ee_id=data["entry_id"],
                 ).update(
                     set__expenses__S__entry_tags=selected_tags,
-                    set__expenses__S__description=data.get("description")
+                    set__expenses__S__description=data.get("description"),
                 )
             except Exception as e:
                 return jsonify({"error": e})
@@ -242,7 +254,7 @@ def delete_expense(current_user):
             ).first()
             if expense:
                 expense.delete()
-                return jsonify({"deleted": "Document deleted successfully"}), 204
+                return jsonify({"success": "Document deleted successfully"}), 204
             else:
                 return jsonify({"error": "Document not found"}), 404
         except AttributeError as err:

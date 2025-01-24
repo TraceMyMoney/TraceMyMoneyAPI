@@ -29,9 +29,6 @@ class Expense(Document):
     updated_at = DateTimeField(default=datetime.now().date())
     user_id = ObjectIdField()
 
-    # Setup the unique indexes
-    meta = dict(indexes=[dict(fields=["created_at", "bank"], unique=True)])
-
     def get_total_of_expenses(self):
         return sum([ee.amount for ee in self.expenses])
 
