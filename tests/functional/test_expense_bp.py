@@ -552,9 +552,8 @@ class TestExpenseBP:
         Now, let's add the expense entries in the (current_day - 1)'s expense which is 400,
         here, 150 + 100 => 250 got added in the form of expense entries
         hence, total till now is => 400 + 250 => 650
-
-
         """
+
         entry_payload = [
             {
                 "amount": 150,
