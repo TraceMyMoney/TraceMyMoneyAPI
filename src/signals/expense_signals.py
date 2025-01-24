@@ -4,7 +4,7 @@ from mongoengine import signals
 
 # relative imports
 from src.models.expense import Expense
-from src.signals.helper import update_bank_and_expense_data
+from src.signals.helper.update_bank_and_expense_data import update_bank_and_expense_data
 
 
 def pre_save_expense(sender, document, **kwargs):
