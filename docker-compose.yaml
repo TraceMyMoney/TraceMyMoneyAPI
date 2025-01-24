@@ -11,19 +11,6 @@ services:
     networks:
       - my_network
 
-  trackmoney_update_bank_and_expenses:
-    image: parimalmahindrakar/track_money_api:latest
-    command: celery -A wsgi.celery_app worker -l info
-    env_file:
-      - ../env/.env.prod
-    deploy:
-      replicas: 1
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-    networks:
-      - my_network
-
   rabbitmq:
     image: "rabbitmq:3-management"
     hostname: "rabbitmq"
