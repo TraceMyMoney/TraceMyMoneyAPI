@@ -186,20 +186,35 @@ def update_expense_entry(current_user):
         f"\nFile Name: {__name__}"
     )
     if data.get("expense_id") and data.get("entry_id"):
-        if selected_tags := data.get("selected_tags"):
+        if data.get("updated_description") or data.get("selected_tags"):
             try:
+                selected_tags = data.get("selected_tags")
+                updated_description = data.get("updated_description")
+                updated_dict = {}
+                if updated_description and selected_tags:
+                    updated_dict = dict(
+                        set__expenses__S__entry_tags=selected_tags,
+                        set__expenses__S__description=updated_description,
+                    )
+                elif updated_description:
+                    updated_dict = dict(
+                        set__expenses__S__description=updated_description,
+                    )
+                else:
+                    updated_dict = dict(
+                        set__expenses__S__entry_tags=selected_tags,
+                    )
+
                 Expense.objects(
                     id=ObjectId(data["expense_id"]),
                     user_id=current_user.id,
                     expenses__ee_id=data["entry_id"],
-                ).update(
-                    set__expenses__S__entry_tags=selected_tags,
-                    set__expenses__S__description=data.get("description"),
-                )
+                ).update(**updated_dict)
+
             except Exception as e:
                 return jsonify({"error": e})
             else:
-                return jsonify({"success": "Updated expense entry successfully"}), 201
+                return jsonify({"success": "Updated expense entry successfully"}), 200
         else:
             return jsonify({"error": "Please provide the tags"}), 400
     else:
