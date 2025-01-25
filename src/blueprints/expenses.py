@@ -72,7 +72,11 @@ def create_expense(current_user):
                 )
             try:
                 if (
-                    not Expense.objects(created_at=expense.created_at).first()
+                    not Expense.objects(
+                        bank=ObjectId(data.get("bank_id")),
+                        user_id=current_user.id,
+                        created_at=expense.created_at,
+                    ).first()
                     and expense.save()
                 ):
                     return (
