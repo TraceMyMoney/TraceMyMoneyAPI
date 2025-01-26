@@ -15,12 +15,8 @@ CORS(entry_tags_bp, resources={r"/*": {"origins": "*"}})
 @entry_tags_bp.get("/")
 @token_required
 def get_entry_tags(current_user):
-    entry_tags = list(
-        map(
-            lambda tag_object: {"id": str(tag_object.id), "name": tag_object.name},
-            ExpenseEntryTag.objects(user_id=current_user.id),
-        )
-    )
+    data = dict(request.args)
+    entry_tags = ExpenseEntryTag.get_tags(current_user, **data)
     return jsonify({"entry_tags": entry_tags}), 200
 
 
@@ -39,7 +35,7 @@ def create_entry_tags(current_user):
             if ee_tag.save():
                 return (
                     jsonify(
-                        {"success": "tag created successfully", "id": str(ee_tag.id)}
+                        {"success": "Tag created successfully", "id": str(ee_tag.id)}
                     ),
                     201,
                 )
