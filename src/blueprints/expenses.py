@@ -25,7 +25,7 @@ def expenses(current_user):
     payload = {}
     if request_data := request_args.pop("data", None):
         payload = loads(request_data)
-    expenses, total_expenses, total_summation = Expense.get_expenses(
+    expenses, total_expenses, non_topup_total, topup_total = Expense.get_expenses(
         current_user, **request_args, **payload
     )
     current_app.logger.info(
@@ -37,7 +37,8 @@ def expenses(current_user):
     results.extend(
         [
             {"total_expenses": total_expenses},
-            {"total_summation": total_summation},
+            {"non_topup_total": non_topup_total},
+            {"topup_total": topup_total},
         ]
     )
 
