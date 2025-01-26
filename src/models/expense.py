@@ -131,4 +131,7 @@ class Expense(Document):
             reduce(
                 lambda total, doc: total + doc["expense_total"], paginated_expenses, 0
             ),
+            reduce(
+                lambda total, doc: total + doc["topup_expense_total"], paginated_expenses, 0
+            ),
         )
