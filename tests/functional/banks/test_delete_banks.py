@@ -88,5 +88,5 @@ class TestBankBP:
         assert_that(expense_res.status_code, is_(200))
         assert_that(
             expense_res.json["expenses"],
-            is_([{"total_expenses": 0}, {"total_summation": 0}]),
+            is_([{'total_expenses': 0}, {'non_topup_total': 0}, {'topup_total': 0}]),
         )
