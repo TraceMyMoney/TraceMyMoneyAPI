@@ -219,7 +219,7 @@ def update_expense_entry(current_user):
             except Exception as e:
                 return jsonify({"error": e})
             else:
-                return jsonify({"success": "Updated expense entry successfully"}), 200
+                return jsonify({"success": "Updated expense entry successfully"}), 201
         else:
             return jsonify({"error": "Please provide the tags"}), 400
     else:

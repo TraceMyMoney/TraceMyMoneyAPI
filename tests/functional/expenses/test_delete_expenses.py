@@ -398,7 +398,7 @@ class TestExpensesDelete:
         res = self.expense_helper.update_expense_entry_api(
             self.api_token, json.dumps(payload)
         )
-        assert_that(res.status_code, is_(200))
+        assert_that(res.status_code, is_(201))
         assert_that(res.json["success"], is_("Updated expense entry successfully"))
 
         expense = Expense.objects(id=expense_id).first()
@@ -432,7 +432,7 @@ class TestExpensesDelete:
         res = self.expense_helper.update_expense_entry_api(
             self.api_token, json.dumps(payload)
         )
-        assert_that(res.status_code, is_(200))
+        assert_that(res.status_code, is_(201))
         assert_that(res.json["success"], is_("Updated expense entry successfully"))
 
         expense = Expense.objects(id=expense_id).first()
@@ -467,7 +467,7 @@ class TestExpensesDelete:
         res = self.expense_helper.update_expense_entry_api(
             self.api_token, json.dumps(payload)
         )
-        assert_that(res.status_code, is_(200))
+        assert_that(res.status_code, is_(201))
         assert_that(res.json["success"], is_("Updated expense entry successfully"))
 
         expense = Expense.objects(id=expense_id).first()
