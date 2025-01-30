@@ -1,4 +1,4 @@
-import pytest, json
+import pytest, random
 from hamcrest import is_, assert_that
 
 # src imports
@@ -33,7 +33,7 @@ class TestGetTags:
         for i in range(total_number_of_entry_tags):
             assert_that(response.json["entry_tags"][i]["name"], is_(f"Tag_{i}"))
 
-    def test_get_tag_by_name(self):
+    def test_get_tags_by_name_without_regex(self):
         total_number_of_entry_tags = 15
         for i in range(total_number_of_entry_tags):
             ee_tag = ExpenseEntryTag(name=f"Tag_{i}", user_id=self.user.id)
@@ -42,4 +42,42 @@ class TestGetTags:
         response = self.entry_tags_helper.get_entry_tags_api_call(
             self.api_token, params=payload
         )
-        a = ''
+        assert_that(response.status_code, is_(200))
+        assert_that(len(response.json["entry_tags"]), is_(1))
+        assert_that(response.json["entry_tags"][0]["name"], is_("Tag_1"))
+
+    def test_get_tags_by_name_with_regex(self):
+        total_number_of_entry_tags = 15
+        for i in range(total_number_of_entry_tags):
+            ee_tag = ExpenseEntryTag(name=f"Tag_{i}", user_id=self.user.id)
+            ee_tag.save()
+        payload = {"name": "Tag_1", "regex": True}
+        response = self.entry_tags_helper.get_entry_tags_api_call(
+            self.api_token, params=payload
+        )
+        assert_that(response.status_code, is_(200))
+        assert_that(len(response.json["entry_tags"]), is_(6))
+
+        expected_tags_with_regex = [
+            "Tag_1",
+            "Tag_10",
+            "Tag_11",
+            "Tag_12",
+            "Tag_13",
+            "Tag_14",
+        ]
+        for index, item in zip(range(0, 7), expected_tags_with_regex):
+            assert_that(response.json["entry_tags"][index]["name"], is_(item))
+
+    def test_get_tags_by_id(self):
+        ee_tag = ExpenseEntryTag(name="Tag_Test", user_id=self.user.id)
+        ee_tag.save()
+
+        payload = {"_id": str(ee_tag.id)}
+        response = self.entry_tags_helper.get_entry_tags_api_call(
+            self.api_token, params=payload
+        )
+
+        respone_entry_tag = response.json["entry_tags"][0]
+        assert_that(response.status_code, is_(200))
+        assert_that(respone_entry_tag["id"], is_(str(ee_tag.id)))

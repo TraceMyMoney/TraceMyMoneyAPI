@@ -23,8 +23,7 @@ class TestCreateTags:
         response = self.entry_tags_helper.create_entry_tags_api_call(
             self.api_token, json.dumps(payload)
         )
-        assert_that(response.status_code, is_(201))
-        assert_that(response.json["success"], is_("Tag created successfully"))
+        assert_that(response.status_code, is_(200))
 
     def test_create_entry_tags_which_already_exists(self):
         # Create the new tag
@@ -32,8 +31,7 @@ class TestCreateTags:
         response = self.entry_tags_helper.create_entry_tags_api_call(
             self.api_token, json.dumps(payload)
         )
-        assert_that(response.status_code, is_(201))
-        assert_that(response.json["success"], is_("Tag created successfully"))
+        assert_that(response.status_code, is_(200))
 
         # Create the same tag again
         payload = {"name": "Test Tag"}

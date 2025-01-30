@@ -8,6 +8,7 @@ from src.blueprints.expenses import expense_bp
 from src.blueprints.expense_entry_tags import entry_tags_bp
 from src.blueprints.auth import auth_bp
 from src.signals import expense_signals, user_signals
+from src.tm_restful.restful_app import restful_app
 
 import src.extensions as ext
 
@@ -36,6 +37,7 @@ def create_app():
     app.register_blueprint(bank_bp, url_prefix="/banks")
     app.register_blueprint(expense_bp, url_prefix="/expenses")
     app.register_blueprint(entry_tags_bp, url_prefix="/entry-tags")
+    restful_app(app=app)
 
     configure_logging(app)
     celery_app = ext.celery_init_app(app)

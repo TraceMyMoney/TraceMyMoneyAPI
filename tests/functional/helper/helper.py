@@ -94,13 +94,13 @@ class ExpenseEntryTagsHelper(BaseHelper):
     def get_entry_tags_api_call(self, api_token, params={}):
         self.headers["x-access-token"] = api_token
         return self.testapp.get(
-            "/entry-tags/", headers=self.headers, params=params, expect_errors=True
+            "/entry-tags-v1/", headers=self.headers, params=params, expect_errors=True
         )
 
     def create_entry_tags_api_call(self, api_token, params={}):
         self.headers["x-access-token"] = api_token
         return self.testapp.post(
-            "/entry-tags/create",
+            "/entry-tags-v1/",
             headers=self.headers,
             params=params,
             expect_errors=True,
@@ -109,7 +109,7 @@ class ExpenseEntryTagsHelper(BaseHelper):
     def delete_entry_tags_api_call(self, api_token, params={}):
         self.headers["x-access-token"] = api_token
         return self.testapp.delete(
-            "/entry-tags/delete",
+            "/entry-tags-v1/",
             headers=self.headers,
             params=params,
             expect_errors=True,
