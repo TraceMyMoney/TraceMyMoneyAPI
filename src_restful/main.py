@@ -1,16 +1,16 @@
 from flask import Flask
 from os import environ
 
-from src.config import config
+from src_restful.config import config
 from src.helpers.helper import configure_logging
 from src.blueprints.banks import bank_bp
 from src.blueprints.expenses import expense_bp
 from src.blueprints.expense_entry_tags import entry_tags_bp
 from src.blueprints.auth import auth_bp
 from src.signals import expense_signals, user_signals
-from src.tm_restful.restful_app import restful_app
+from src_restful.restful_app import restful_app
 
-import src.extensions as ext
+import src_restful.extensions as ext
 
 
 def create_app():

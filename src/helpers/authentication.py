@@ -3,8 +3,8 @@ from functools import wraps
 from flask import jsonify, request, g
 
 from src.models.user import User
-from src.extensions import config
-from src.tm_restful.utils.exception import NoAuthorizationError
+from src_restful.extensions import config
+from src_restful.utils.exception import NoAuthorizationError
 
 
 def token_required(f):

@@ -1,7 +1,7 @@
 from flask_cors import CORS
 from flask_restful import Api
 
-from src.tm_restful.routes import ROUTE_LIST
+from src_restful.routes import ROUTE_LIST
 
 
 def restful_app(app):

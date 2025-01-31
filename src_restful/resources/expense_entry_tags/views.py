@@ -4,16 +4,16 @@ from flask import g
 from http import HTTPStatus
 
 # local import
-from src.tm_restful.base import BaseResource
-from src.tm_restful.resources.expense_entry_tags.schemas import (
+from src_restful.base import BaseResource
+from src_restful.resources.expense_entry_tags.schemas import (
     ExpenseEntryTagRequestSchema,
     ExpenseEntryTagResponseSchema,
     ExpenseEntryTagPostRequestSchema,
     ExpenseEntryTagPostResponseSchema,
     ExpenseEntryTagDeleteRequestSchema,
 )
-from src.tm_restful.schemas.common_schemas import SuccessSchema
-from src.tm_restful.resources.expense_entry_tags.models.expense_entry_db_methods import (
+from src_restful.schemas.common_schemas import SuccessSchema
+from src_restful.resources.expense_entry_tags.models.expense_entry_db_methods import (
     ExpenseEntryDBMethods,
 )
 from src.helpers.authentication import token_required

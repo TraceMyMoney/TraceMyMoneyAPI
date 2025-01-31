@@ -2,7 +2,7 @@
 from flask.cli import FlaskGroup
 
 # Direct Imports
-from src.main import create_app
+from src_restful.main import create_app
 
 # Creating the app
 app = create_app()

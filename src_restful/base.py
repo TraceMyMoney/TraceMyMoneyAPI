@@ -2,7 +2,7 @@ from flask import current_app as app
 from flask_apispec import MethodResource
 from flask_restful import Resource
 
-from src.tm_restful.utils.exception import exception_handle
+from src_restful.utils.exception import exception_handle
 
 
 class BaseResource(MethodResource, Resource):

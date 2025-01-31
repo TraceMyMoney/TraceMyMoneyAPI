@@ -3,7 +3,7 @@ from hamcrest import is_, assert_that
 from bson import ObjectId
 
 # src imports
-from src.models.expense_entry_tag import ExpenseEntryTag
+from src_restful.resources.expense_entry_tags.models.model.ExpenseEntryTag import ExpenseEntryTag
 
 # tests imports
 from tests.factories.user import UserFactory

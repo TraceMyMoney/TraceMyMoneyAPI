@@ -1,5 +1,5 @@
-from src.tm_restful.resources.expense_entry_tags.views import ExpenseEntryTagResource
-from src.tm_restful.utils.common_utils import URLS
+from src_restful.resources.expense_entry_tags.views import ExpenseEntryTagResource
+from src_restful.utils.common_utils import URLS
 
 urls = [
     URLS(

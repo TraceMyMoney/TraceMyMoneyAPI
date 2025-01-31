@@ -7,7 +7,7 @@ from mongoengine import NotUniqueError
 from bson import ObjectId
 
 # relative imports
-from src.constants import DATE_TIME_FORMAT
+from src_restful.constants import DATE_TIME_FORMAT
 from src.models.expense import Expense
 from src.models.bank import Bank
 from src.models.expense_entry import ExpenseEntry

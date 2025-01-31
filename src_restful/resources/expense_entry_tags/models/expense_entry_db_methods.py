@@ -1,7 +1,7 @@
-from src.tm_restful.resources.expense_entry_tags.models.model.ExpenseEntryTag import (
+from src_restful.resources.expense_entry_tags.models.model.ExpenseEntryTag import (
     ExpenseEntryTag,
 )
-from src.tm_restful.utils.exception import (
+from src_restful.utils.exception import (
     ValueErrorWithoutNotification,
 )
 
