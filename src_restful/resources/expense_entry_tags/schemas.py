@@ -1,5 +1,5 @@
 from marshmallow import Schema, fields, validates_schema
-from src_restful.resources.expense_entry_tags.models.model.ExpenseEntryTag import (
+from src_restful.resources.expense_entry_tags.model_db_methods.model.ExpenseEntryTag import (
     ExpenseEntryTag,
 )
 from src_restful.utils.exception import (

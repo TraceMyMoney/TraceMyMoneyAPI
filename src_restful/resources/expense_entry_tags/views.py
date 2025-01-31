@@ -13,7 +13,7 @@ from src_restful.resources.expense_entry_tags.schemas import (
     ExpenseEntryTagDeleteRequestSchema,
 )
 from src_restful.schemas.common_schemas import SuccessSchema
-from src_restful.resources.expense_entry_tags.models.expense_entry_db_methods import (
+from src_restful.resources.expense_entry_tags.model_db_methods.expense_entry_db_methods import (
     ExpenseEntryDBMethods,
 )
 from src.helpers.authentication import token_required
