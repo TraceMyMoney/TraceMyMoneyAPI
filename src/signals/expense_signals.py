@@ -1,3 +1,4 @@
+import sys
 # libraries imports
 from flask import current_app
 from mongoengine import signals
@@ -36,8 +37,11 @@ def post_save_expense(sender, document, **kwargs):
         current_app.logger.info(f"\nFile name: {__name__}" f"\nData Dict: {data_dict}")
         try:
             update_bank_and_expense_data(**data_dict)
+            if document.reload() and document.expenses.count() == 0:
+                document.delete()
         except Exception as e:
             current_app.logger.error(f"\nError: {e}")
+            sys.exit()
 
 
 def post_bulk_insert_data(sender, documents, **kwargs):
