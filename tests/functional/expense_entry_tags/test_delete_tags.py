@@ -1,5 +1,6 @@
 import pytest, json
 from hamcrest import is_, assert_that
+from bson import ObjectId
 
 # src imports
 from src.models.expense_entry_tag import ExpenseEntryTag
@@ -37,10 +38,22 @@ class TestGetTags:
         ee_tag = ExpenseEntryTag(name=f"Tag_789", user_id=self.user.id)
         ee_tag.save()
 
-        payload = {"_id": None}
+        payload = {"_id": ""}
 
         response = self.entry_tags_helper.delete_entry_tags_api_call(
-            self.api_token, params=payload
+            self.api_token, params=json.dumps(payload)
+        )
+        assert_that(response.status_code, is_(400))
+        assert_that(response.json["error"], is_("Please provide the id"))
+
+    def test_delete_tag_by_providing_wrong_id(self):
+        ee_tag = ExpenseEntryTag(name=f"Tag_789", user_id=self.user.id)
+        ee_tag.save()
+
+        payload = {"_id": str(ObjectId())}
+
+        response = self.entry_tags_helper.delete_entry_tags_api_call(
+            self.api_token, params=json.dumps(payload)
         )
         assert_that(response.status_code, is_(400))
         assert_that(response.json["error"], is_("Tag not found"))
