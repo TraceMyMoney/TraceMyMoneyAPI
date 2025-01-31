@@ -388,7 +388,7 @@ class TestExpensesDelete:
         )
         assert_that(response.status_code, is_(201))
         assert_that(response.json["success"], is_("Docuement created successfully"))
-        bank.reload() # reloading that bank object again.
+        bank.reload()  # reloading that bank object again.
         assert_that(bank.current_balance, is_(950))
 
         expense_id = response.json["_id"]
@@ -402,9 +402,9 @@ class TestExpensesDelete:
         )
         assert_that(deleted_response.status_code, is_(204))  # No content
         expense = Expense.objects(id=expense_id).first()
-        assert_that(expense, is_(None)) # we won't get that expense now
+        assert_that(expense, is_(None))  # we won't get that expense now
 
-        bank.reload() # reloading the bank again.
+        bank.reload()  # reloading the bank again.
         assert_that(bank.current_balance, is_(1000))
 
         # Creting the same day expense again, so that we won't get the NotUnique error
@@ -418,5 +418,5 @@ class TestExpensesDelete:
         response = self.expense_helper.create_expense_api(
             self.api_token, params=json.dumps(expense_payload)
         )
-        bank.reload() # reloading the bank again.
+        bank.reload()  # reloading the bank again.
         assert_that(bank.current_balance, is_(1000 - 125))
