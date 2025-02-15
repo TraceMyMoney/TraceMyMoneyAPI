@@ -162,7 +162,13 @@ class Expense(Document):
                 "$group" :{
                     "_id": "$expenses.entry_tags",
                     "tags_wise_summation": {
-                        "$sum": "$expenses.amount"
+                        "$sum": {
+                                    "$cond": [
+                                        {"$gt": ["$expenses.amount", 0]},
+                                        "$expenses.amount",
+                                        0,
+                                    ]
+                                }
                     }
                 }
             }
