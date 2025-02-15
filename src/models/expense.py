@@ -16,7 +16,7 @@ from functools import reduce
 # relative imports
 from src.constants import DATE_TIME_FORMAT
 from src.models import expense_entry
-
+from src.models.expense_entry_tag import ExpenseEntryTag
 
 class Expense(Document):
     day = StringField()
@@ -137,3 +137,48 @@ class Expense(Document):
                 0,
             ),
         )
+
+    @classmethod
+    def get_aggregated_data(cls, current_user, data=None):
+        search_matcher = {
+            "user_id": current_user.id
+        }
+        if data and data.get("bank_id"):
+            search_matcher["bank"] = ObjectId(data["bank_id"])
+
+        aggregated_data = cls.objects.aggregate([
+            {
+                "$match": search_matcher
+            },{
+                "$project": {
+                    "expenses.entry_tags": 1,
+                    "expenses.amount": 1
+                }
+            }, {
+                "$unwind": "$expenses"
+            }, {
+                "$unwind": "$expenses.entry_tags"
+            }, {
+                "$group" :{
+                    "_id": "$expenses.entry_tags",
+                    "tags_wise_summation": {
+                        "$sum": {
+                                    "$cond": [
+                                        {"$gt": ["$expenses.amount", 0]},
+                                        "$expenses.amount",
+                                        0,
+                                    ]
+                                }
+                    }
+                }
+            }
+        ])
+
+        mapped_aggregated_data = {item["_id"]: {"tags_wise_summation": item["tags_wise_summation"]} for item in aggregated_data}
+        mapped_aggregated_data_keys = list(mapped_aggregated_data.keys())
+        entry_tags = dict(map(lambda item: (str(item.id), item.name), ExpenseEntryTag.objects(user_id=current_user.id, id__in=mapped_aggregated_data_keys)))
+
+        for _id in mapped_aggregated_data_keys:
+            mapped_aggregated_data[_id]["tag_name"] = entry_tags[_id]
+
+        return mapped_aggregated_data

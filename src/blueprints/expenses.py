@@ -47,6 +47,14 @@ def expenses(current_user):
         200,
     )
 
+@expense_bp.get("/graph-data")
+@token_required
+def grpah_expenses_data(current_user):
+    # data = loads(request.data.decode("utf-8"))
+    aggregated_response = Expense.get_aggregated_data(current_user)
+    return jsonify({
+        "aggregated_data": aggregated_response
+    })
 
 @expense_bp.post("/create")
 @token_required
