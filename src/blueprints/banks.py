@@ -8,7 +8,7 @@ from bson import ObjectId
 
 # relative imports
 from src.models.bank import Bank
-from src.constants import DATE_TIME_FORMAT
+from src_restful.constants import DATE_TIME_FORMAT
 from src.schemas.schemas import BankSchema
 from src.helpers.authentication import token_required
 from src.models.expense import Expense

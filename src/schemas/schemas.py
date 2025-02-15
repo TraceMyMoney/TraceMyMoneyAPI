@@ -2,7 +2,7 @@
 from marshmallow import Schema, fields
 
 # relative imports
-from src.constants import DATE_TIME_FORMAT
+from src_restful.constants import DATE_TIME_FORMAT
 
 
 class ExpenseEntryTagSchema(Schema):

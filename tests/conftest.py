@@ -7,9 +7,9 @@ from flask_jwt_extended import create_access_token
 
 
 # imports from src
-from src.extensions import connect_mongo
-from src.main import create_app
-from src.extensions import config
+from src_restful.extensions import connect_mongo
+from src_restful.main import create_app
+from src_restful.extensions import config
 
 # imports from tests
 from tests.constants import TEST_USER_ID, TEST_USER_NAME, TEST_FAKE_USER_ID

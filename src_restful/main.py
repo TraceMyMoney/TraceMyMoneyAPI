@@ -1,15 +1,16 @@
 from flask import Flask
 from os import environ
 
-from src.config import config
+from src_restful.config import config
 from src.helpers.helper import configure_logging
 from src.blueprints.banks import bank_bp
 from src.blueprints.expenses import expense_bp
 from src.blueprints.expense_entry_tags import entry_tags_bp
 from src.blueprints.auth import auth_bp
 from src.signals import expense_signals, user_signals
+from src_restful.restful_app import restful_app
 
-import src.extensions as ext
+import src_restful.extensions as ext
 
 
 def create_app():
@@ -36,6 +37,7 @@ def create_app():
     app.register_blueprint(bank_bp, url_prefix="/banks")
     app.register_blueprint(expense_bp, url_prefix="/expenses")
     app.register_blueprint(entry_tags_bp, url_prefix="/entry-tags")
+    restful_app(app=app)
 
     configure_logging(app)
     celery_app = ext.celery_init_app(app)

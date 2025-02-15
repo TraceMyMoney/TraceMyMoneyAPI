@@ -7,7 +7,7 @@ from werkzeug.security import check_password_hash
 from datetime import datetime, timedelta
 
 from src.models.user import User
-from src.extensions import config
+from src_restful.extensions import config
 
 
 auth_bp = Blueprint("auth", __name__)

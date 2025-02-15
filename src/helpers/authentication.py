@@ -1,9 +1,10 @@
 import jwt
 from functools import wraps
-from flask import jsonify, request
+from flask import jsonify, request, g
 
 from src.models.user import User
-from src.extensions import config
+from src_restful.extensions import config
+from src_restful.utils.exception import NoAuthorizationError
 
 
 def token_required(f):
@@ -13,14 +14,15 @@ def token_required(f):
         if "x-access-token" in request.headers:
             token = request.headers["x-access-token"]
         if not token:
-            return jsonify({"error": "Token is missing"}), 401
+            raise NoAuthorizationError(f"Missing Authorization Header")
         try:
             data = jwt.decode(token, config["JWT_SECRET_KEY"], algorithms=["HS256"])
             current_user = User.objects(id=data["user_id"]).first()
             if not current_user:
-                return jsonify({"error": "User not found"}), 401
+                raise NoAuthorizationError("Invalid credentials")
+            g.current_user = current_user
         except:
-            return jsonify({"message": "Token is invalid"}), 401
-        return f(current_user, *args, **kwargs)
+            raise NoAuthorizationError("Signature verification failed")
+        return f(*args, **kwargs)
 
     return decorated

@@ -5,7 +5,7 @@ from mongoengine import connect
 from celery import Celery, Task
 
 # relative imports
-from src.config import config as app_config
+from src_restful.config import config as app_config
 
 config = Config("")
 env = environ.get("TRACKTHEMONEY_ENV", "development").lower()
