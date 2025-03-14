@@ -38,6 +38,6 @@ def create_app():
     app.register_blueprint(entry_tags_bp, url_prefix="/entry-tags")
 
     configure_logging(app)
-    celery_app = ext.celery_init_app(app)
+    # celery_app = ext.celery_init_app(app)
 
-    return app, celery_app
+    return app

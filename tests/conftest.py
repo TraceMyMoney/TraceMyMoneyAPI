@@ -30,7 +30,7 @@ def drop_db():
 
 @pytest.fixture(scope="session")
 def app():
-    _app, _ = create_app()
+    _app = create_app()
     with _app.app_context():
         yield _app
 

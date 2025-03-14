@@ -3,11 +3,13 @@ from os import environ
 from flask.config import Config
 from mongoengine import connect
 from celery import Celery, Task
+from flask_apscheduler import APScheduler
 
 # relative imports
 from src.config import config as app_config
 
 config = Config("")
+scheduler = APScheduler() # create the scheduler instance
 env = environ.get("TRACKTHEMONEY_ENV", "development").lower()
 
 if env == "test":
