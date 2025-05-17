@@ -4,11 +4,12 @@ on:
   push:
     branches:
       - master
+  workflow_dispatch:
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -26,9 +27,9 @@ jobs:
       - name: Start MongoDB
         uses: supercharge/mongodb-github-action@1.12.0
         with:
-          mongodb-version: '8' 
+          mongodb-version: '8'
           mongodb-root-username: admin
-          mongodb-root-password: jKFLXJCoGgsVCoiO 
+          mongodb-root-password: jKFLXJCoGgsVCoiO
 
       - name: Set environment variables for testing
         run: |
