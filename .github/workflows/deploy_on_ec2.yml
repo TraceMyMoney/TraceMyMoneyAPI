@@ -85,5 +85,5 @@ jobs:
 
             # Step 4: Use docker-compose to bring up containers
             echo "Starting containers with docker-compose"
-            docker-compose -f docker-compose.yaml up -d
+            docker compose -f docker-compose.yaml up -d
           EOF
