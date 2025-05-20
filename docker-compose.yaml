@@ -25,6 +25,9 @@ services:
     container_name: tm_nginx_server
     ports:
       - "80:80"
+      - "443:443"
+    volumes:
+      - "/etc/ssl/certs/tm_keys:/etc/ssl/certs/tm_keys"
     depends_on:
       - trackmoney_api
     networks:
