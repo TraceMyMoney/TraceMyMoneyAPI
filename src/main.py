@@ -29,6 +29,12 @@ def create_app():
                 "MONGO_DATABASE_URI", "mongodb://localhost:27017/"
             ),
             task_ignore_result=True,
+            beat_schedule={
+                "say-hello-every-10-seconds": {
+                    "task": "src.tasks.task.print_hello",
+                    "schedule": 10.0,
+                }
+            },
         )
     )
 
@@ -38,6 +44,6 @@ def create_app():
     app.register_blueprint(entry_tags_bp, url_prefix="/entry-tags")
 
     configure_logging(app)
-    # celery_app = ext.celery_init_app(app)
+    celery_app = ext.celery_init_app(app)
 
-    return app
+    return app, celery_app
