@@ -5,8 +5,8 @@ from flask.cli import FlaskGroup
 from src.main import create_app
 
 # Creating the app
-app = create_app()
+app, celery = create_app()
 
 if __name__ == "__main__":
-    cli = FlaskGroup(app)
+    cli = FlaskGroup(create_app)
     cli()

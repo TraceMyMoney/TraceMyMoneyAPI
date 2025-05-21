@@ -10,6 +10,7 @@ from src.blueprints.auth import auth_bp
 from src.signals import expense_signals, user_signals
 
 import src.extensions as ext
+from src.common_constants.tasks_constants import SCHEDULED_TASKS
 
 
 def create_app():
@@ -29,6 +30,7 @@ def create_app():
                 "MONGO_DATABASE_URI", "mongodb://localhost:27017/"
             ),
             task_ignore_result=True,
+            beat_schedule=SCHEDULED_TASKS,
         )
     )
 

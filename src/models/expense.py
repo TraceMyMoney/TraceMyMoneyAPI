@@ -18,6 +18,7 @@ from src.constants import DATE_TIME_FORMAT
 from src.models import expense_entry
 from src.models.expense_entry_tag import ExpenseEntryTag
 
+
 class Expense(Document):
     day = StringField()
     expenses = EmbeddedDocumentListField(expense_entry.ExpenseEntry)
@@ -182,3 +183,40 @@ class Expense(Document):
             mapped_aggregated_data[_id]["tag_name"] = entry_tags[_id]
 
         return mapped_aggregated_data
+
+    @classmethod
+    def get_report_data(self, user_ids, start_date, end_date):
+        expense_matcher = {
+            "user_id": {"$in": user_ids},
+            "created_at": {
+                "$gte": datetime.combine(start_date, datetime.min.time()),
+                "$lte": datetime.combine(end_date, datetime.min.time()),
+            },
+        }
+        query = Expense.objects.aggregate(
+            [
+                {"$match": expense_matcher},
+                {"$unwind": "$expenses"},
+                {"$unwind": "$expenses.entry_tags"},
+                {
+                    "$group": {
+                        "_id": {
+                            "entry_tags": "$expenses.entry_tags",
+                            "user_id": "$user_id",
+                            "created_at": "$created_at",
+                            "bank_id": "$bank",
+                        },
+                        "tags_wise_summation": {
+                            "$sum": {
+                                "$cond": [
+                                    {"$gt": ["$expenses.amount", 0]},
+                                    "$expenses.amount",
+                                    0,
+                                ]
+                            }
+                        },
+                    }
+                },
+            ]
+        )
+        return list(query)
