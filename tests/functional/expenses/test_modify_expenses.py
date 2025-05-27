@@ -52,7 +52,7 @@ class TestExpensesModify:
             self.api_token, json.dumps(payload)
         )
         assert_that(res.status_code, is_(201))
-        assert_that(res.json["success"], is_("Updated expense entry successfully"))
+        assert_that(res.json["data"], is_(payload))
 
         expense = Expense.objects(id=expense_id).first()
         expense_entry = expense.expenses[0]
@@ -86,7 +86,7 @@ class TestExpensesModify:
             self.api_token, json.dumps(payload)
         )
         assert_that(res.status_code, is_(201))
-        assert_that(res.json["success"], is_("Updated expense entry successfully"))
+        assert_that(res.json["data"], is_(payload))
 
         expense = Expense.objects(id=expense_id).first()
         expense_entry = expense.expenses[0]
@@ -121,7 +121,7 @@ class TestExpensesModify:
             self.api_token, json.dumps(payload)
         )
         assert_that(res.status_code, is_(201))
-        assert_that(res.json["success"], is_("Updated expense entry successfully"))
+        assert_that(res.json["data"], is_(payload))
 
         expense = Expense.objects(id=expense_id).first()
         expense_entry = expense.expenses[0]
