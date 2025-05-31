@@ -1,1 +1,1 @@
-DATE_TIME_FORMAT = "%d-%m-%Y %H:%M"
+DATE_TIME_FORMAT = "%d/%m/%Y %H:%M"
