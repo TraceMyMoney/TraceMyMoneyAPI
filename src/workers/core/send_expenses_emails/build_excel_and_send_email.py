@@ -18,37 +18,51 @@ def build_excel_and_send_email_task(self, data, exchange=None):
 
 
 def build_excel_with_provided_data(aggregated_data, start_date, end_date):
-    aggregated_data = {
-        "SBI": {
-            "Rikshaw or Cab (OLA or Uber)": 114.0,
-            "Hot Drinks": 30.0,
-            "Things for me": 312.0,
-            "Food": 613.0,
-            "New House": 32.0,
-            "Splits in friends": 880.0,
-            "Milk": 37.0,
-            "Junkfood": 145.0,
-            "Entertainment": 510.0,
-            "Online orders (Amazon, flipkart, etc)": 347.0,
-            "wafors": 40.0,
-            "Grocery": 125.0,
-            "Gyn things": 85.0,
-            "Hair cut, Beard": 60.0,
-            "Devotion": 50.0,
-            "Petrol": 205.0,
-        },
-        "CASH": {"Bike parking": 90.0, "One day trip ": 90.0},
-        "HDFC": {
-            "IPO Applied": 14910.0,
-            "Salary Credited": 0,
-            "Transfered to SBI": 7000.0,
-            "New House money returned": 59000.0,
-            "New House": 164901.0,
-        },
-    }
-
-    workbook = xlsxwriter.Workbook(f"Daily Expenses from {start_date} to {end_date}")
+    workbook = xlsxwriter.Workbook(f"Daily expenses.xlsx")
     worksheet = workbook.add_worksheet()
+    bold_words = workbook.add_format({"bold": True,})
+    bold_words_with_centered = workbook.add_format({"bold": True, "align": "center"})
+    centered_bold = workbook.add_format(
+        {
+            "bold": True,
+            "align": "center",
+            "valign": "vcenter",
+            "font_color": "white",
+            "bg_color": "#1E90FF",  # DodgerBlue
+            "border": 1,
+        }
+    )
+    worksheet.merge_range(
+        0, 0, 0, 4, f"From {start_date[:10]} to {end_date[:10]}", bold_words_with_centered
+    )
+    row_count = 1
+    col_count = 0
+    for bank_name, related_data in aggregated_data.items():
+        worksheet.merge_range(
+            row_count, col_count, row_count, col_count + 1, bank_name, centered_bold
+        )
+        row_count += 1
+        summation_count_from = row_count
+
+        for item, cost in related_data.items():
+            worksheet.merge_range(row_count, col_count, row_count, col_count + 1, item)
+            worksheet.write(row_count, col_count + 2, cost)
+            row_count += 1
+
+        worksheet.merge_range(
+            row_count, col_count, row_count, col_count + 1, "TOTAL", bold_words
+        )
+        worksheet.write(
+            row_count,
+            col_count + 2,
+            f"=SUM(C{summation_count_from + 1}:C{row_count})",
+            bold_words,
+        )
+        row_count += 1
+        worksheet.merge_range(row_count, col_count, row_count, col_count + 1, "")
+        row_count += 1
+
+    workbook.close()
 
 
 def send_email_to_user(user_email, built_excel_book):

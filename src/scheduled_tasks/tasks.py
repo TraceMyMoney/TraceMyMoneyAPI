@@ -12,7 +12,7 @@ _, celery = create_app()
 @celery.task(name="src.scheduled_tasks.tasks.send_daily_expenses_data")
 def send_daily_expenses_data():
     start_date = datetime.combine(
-        datetime.utcnow().date() - timedelta(days=3), datetime.min.time()
+        datetime.utcnow().date() - timedelta(days=1), datetime.min.time()
     )
     end_date = datetime.combine(
         datetime.utcnow().date() - timedelta(days=1), datetime.max.time()
