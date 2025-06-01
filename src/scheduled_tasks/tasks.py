@@ -2,6 +2,8 @@ from datetime import datetime, timedelta
 
 from src.main import create_app
 from src.scheduled_tasks.core.expenses_data import get_expenses_data
+from src.publishers.event_publisher import EventPublisher
+from src.common_constants.pub_sub_constants import SEND_EMAILS_TASK
 
 
 _, celery = create_app()
@@ -16,6 +18,15 @@ def send_daily_expenses_data():
         datetime.utcnow().date() - timedelta(days=1), datetime.max.time()
     )
     aggregated_expenses_report_data = get_expenses_data(start_date, end_date)
-    # TODO:
-    # publish this aggregated_expenses_report_data
-    # create the create_excel_and_send_email worker as a consumer
+    aggregated_expenses_report_data.update({
+        "start_date": str(start_date).replace("-", "/"),
+        "end_date": str(end_date).replace("-", "/")
+    })
+
+    EventPublisher().publish_message_to_exchange(
+        model_instance="build_excel_and_send_email",
+        task=SEND_EMAILS_TASK,
+        data=aggregated_expenses_report_data,
+        exchange="",
+        routing_key="daily_expenses_notifications_queue",
+    )
