@@ -11,6 +11,26 @@ services:
     networks:
       - my_network
 
+  celery_worker_with_beat:
+    image: parimalmahindrakar/track_money_api:latest
+    command: celery -A manage.celery worker --beat --loglevel=info
+    env_file:
+      - ../env/.env.prod
+    networks:
+      - my_network
+    depends_on:
+      - rabbitmq
+
+  celery_worker_daily_expenses_emails:
+    image: parimalmahindrakar/track_money_api:latest
+    command: celery -A src.workers.celery_worker_send_daily_expenses_emails worker -l info -n send_daily_expenses_emails -c 1 -Ofair -Q daily_expenses_notifications_queue
+    env_file:
+      - ../env/.env.prod
+    networks:
+      - my_network
+    depends_on:
+      - rabbitmq
+
   rabbitmq:
     image: "rabbitmq:3-management"
     hostname: "rabbitmq"

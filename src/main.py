@@ -11,6 +11,7 @@ from src.signals import expense_signals, user_signals
 
 import src.extensions as ext
 from src.common_constants.tasks_constants import SCHEDULED_TASKS
+from src.publishers.event_publisher import EventPublisher
 
 
 def create_app():
@@ -24,7 +25,7 @@ def create_app():
     app.config.from_mapping(
         CELERY=dict(
             broker_url=environ.get(
-                "CELERY_BROKER_URL", "amqp://guest:guest@localhost:5672//"
+                "CELERY_BROKER_URL", "amqp://guest:guest@localhost:5672/event"
             ),
             result_backend=environ.get(
                 "MONGO_DATABASE_URI", "mongodb://localhost:27017/"
@@ -41,5 +42,9 @@ def create_app():
 
     configure_logging(app)
     celery_app = ext.celery_init_app(app)
+
+    with app.app_context():
+        if env != "test":
+            EventPublisher().exchange_queue_binding()
 
     return app, celery_app
