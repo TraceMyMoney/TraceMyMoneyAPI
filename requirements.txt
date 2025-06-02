@@ -1,6 +1,7 @@
 amqp==5.2.0
 aniso8601==10.0.0
 apispec==6.8.1
+APScheduler==3.11.0
 astroid==3.2.2
 beautifulsoup4==4.12.3
 billiard==4.2.0
@@ -19,8 +20,11 @@ dill==0.3.8
 dnspython==2.6.1
 Flask==3.0.3
 flask-apispec==0.11.4
+Flask-APScheduler==1.13.1
+Flask-CeleryExt==0.5.0
 Flask-Cors==5.0.0
 Flask-JWT-Extended==4.7.1
+Flask-Mail==0.10.0
 Flask-RESTful==0.3.10
 Flask-WebTest==0.1.6
 gunicorn==22.0.0
@@ -59,6 +63,7 @@ tomli==2.0.1
 tomlkit==0.12.5
 typing_extensions==4.12.0
 tzdata==2024.1
+tzlocal==5.3.1
 urllib3==2.3.0
 vine==5.1.0
 waitress==3.0.2
@@ -67,4 +72,5 @@ webargs==8.6.0
 WebOb==1.8.9
 WebTest==3.0.1
 Werkzeug==3.0.3
+XlsxWriter==3.2.2
 zipp==3.19.0
