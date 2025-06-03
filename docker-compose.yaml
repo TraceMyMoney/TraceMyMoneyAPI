@@ -11,7 +11,8 @@ services:
     networks:
       - my_network
     depends_on:
-      - rabbitmq
+      rabbitmq:
+        condition: service_healthy
 
   celery_worker_with_beat:
     image: parimalmahindrakar/track_money_api:latest
