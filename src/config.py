@@ -35,6 +35,9 @@ class BaseConfig:
     )
     EXCEL_UPLOAD_PATH = environ.get("EXCEL_UPLOAD_PATH", "EXCEL_UPLOAD_PATH")
     AWS_BUCKET_NAME = environ.get("AWS_BUCKET_NAME", "AWS_BUCKET_NAME")
+    MAILGUN_URI = environ.get("MAILGUN_URI", "MAILGUN_URI")
+    MAILGUN_API_KEY = environ.get("MAILGUN_API_KEY", "MAILGUN_API_KEY")
+    MAILGUN_FROM_ADDR = environ.get("MAILGUN_FROM_ADDR", "MAILGUN_FROM_ADDR")
 
 
 class DevelopmentConfig(BaseConfig):

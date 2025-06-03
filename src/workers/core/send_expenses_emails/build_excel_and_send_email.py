@@ -1,10 +1,13 @@
 import os
 import xlsxwriter
 from werkzeug.exceptions import BadRequest
+from http import HTTPStatus
 
 from src.models.model_db_methods.user_db_methods import UserDBMethods
 from src.utils.s3_client import S3Client
 from src.extensions import config
+from src.common_constants.tasks_constants import EMAIL_SUBJECT, EMAIL_CONTENT
+from src.utils.send_email import send_email
 
 
 def build_excel_and_send_email_task(self, data, exchange=None):
@@ -90,8 +93,15 @@ def send_email_to_user(user_email, user_name, report_name):
                 "There was an exception while uploading Excel. Please try again."
             )
 
-    # TODO: write send_email() functionality
-    # os.remove() returns None on success
+    response = send_email(
+        to_addr=user_email,
+        subject=EMAIL_SUBJECT.format(report_name=report_name),
+        content=EMAIL_CONTENT.format(user_name=user_name, file_url=file_url)
+    )
+
+    if response.status_code == HTTPStatus.OK:
+        print(f"SENT email to {user_email}")
+
     if not os.remove(report_name):
         return file_url
     raise BadRequest("Error while deleting the excel file.")

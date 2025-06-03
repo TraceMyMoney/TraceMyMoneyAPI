@@ -14,3 +14,6 @@ SCHEDULED_TASKS = {
         "schedule": crontab(hour=0, minute=1, day_of_month=1),
     },
 }
+
+EMAIL_SUBJECT = "Expenses report for {report_name}"
+EMAIL_CONTENT = "Dear {user_name}, \n\nPlease find your expenses report here :\n\n{file_url}"
