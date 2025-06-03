@@ -29,6 +29,12 @@ class BaseConfig:
         EVENT_RABBITMQ_PORT,
         EVENT_RABBITMQ_VHOST,
     )
+    AWS_ACCESS_KEY_ID = environ.get("AWS_ACCESS_KEY_ID", "AWS_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY = environ.get(
+        "AWS_SECRET_ACCESS_KEY", "AWS_SECRET_ACCESS_KEY"
+    )
+    EXCEL_UPLOAD_PATH = environ.get("EXCEL_UPLOAD_PATH", "EXCEL_UPLOAD_PATH")
+    AWS_BUCKET_NAME = environ.get("AWS_BUCKET_NAME", "AWS_BUCKET_NAME")
 
 
 class DevelopmentConfig(BaseConfig):

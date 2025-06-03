@@ -1,6 +1,10 @@
+import os
 import xlsxwriter
+from werkzeug.exceptions import BadRequest
 
 from src.models.model_db_methods.user_db_methods import UserDBMethods
+from src.utils.s3_client import S3Client
+from src.extensions import config
 
 
 def build_excel_and_send_email_task(self, data, exchange=None):
@@ -12,16 +16,22 @@ def build_excel_and_send_email_task(self, data, exchange=None):
         if (user := UserDBMethods.get_record_with_id(user_id)) and (
             user_email := user.email
         ):
-            built_excel_book = build_excel_with_provided_data(
-                aggregated_data, start_date, end_date, report_name
+            report_name_with_id = build_excel_with_provided_data(
+                aggregated_data, start_date, end_date, report_name, user_id
             )
-            send_email_to_user(user_email, built_excel_book)
+            file_url = send_email_to_user(
+                user_email, user.username, report_name_with_id
+            )
+            print(f"\nfile_url : {file_url}\n")
 
 
-def build_excel_with_provided_data(aggregated_data, start_date, end_date, report_name):
-    workbook = xlsxwriter.Workbook(f"{report_name}.xlsx")
+def build_excel_with_provided_data(
+    aggregated_data, start_date, end_date, report_name, user_id
+):
+    report_name_with_id = f"{report_name}_for_{user_id}.xlsx"
+    workbook = xlsxwriter.Workbook(report_name_with_id)
     worksheet = workbook.add_worksheet()
-    bold_words = workbook.add_format({"bold": True,})
+    bold_words = workbook.add_format({"bold": True})
     bold_words_with_centered = workbook.add_format({"bold": True, "align": "center"})
     centered_bold = workbook.add_format(
         {
@@ -64,7 +74,24 @@ def build_excel_with_provided_data(aggregated_data, start_date, end_date, report
         row_count += 1
 
     workbook.close()
+    return report_name_with_id
 
 
-def send_email_to_user(user_email, built_excel_book):
-    pass
+def send_email_to_user(user_email, user_name, report_name):
+    s3 = S3Client()
+    with open(report_name, "rb") as excel_file:
+        file_url = s3.upload_public_file_obj(
+            excel_file,
+            config.get("AWS_BUCKET_NAME"),
+            key=f"{config.get('EXCEL_UPLOAD_PATH')}/{report_name}",
+        )
+        if not file_url:
+            raise BadRequest(
+                "There was an exception while uploading Excel. Please try again."
+            )
+
+    # TODO: write send_email() functionality
+    # os.remove() returns None on success
+    if not os.remove(report_name):
+        return file_url
+    raise BadRequest("Error while deleting the excel file.")
