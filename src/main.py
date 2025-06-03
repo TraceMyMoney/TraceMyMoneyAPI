@@ -26,7 +26,7 @@ def create_app():
     app.config.from_mapping(
         CELERY=dict(
             broker_url=environ.get(
-                "CELERY_BROKER_URL", "amqp://guest:guest@localhost:5672/event"
+                "CELERY_BROKER_URL", "amqp://guest:guest@localhost:5672//"
             ),
             result_backend=environ.get(
                 "MONGO_DATABASE_URI", "mongodb://localhost:27017/"

@@ -17,7 +17,7 @@ class BaseConfig:
     EVENT_RABBITMQ_HOST = environ.get("EVENT_RABBITMQ_HOST", "localhost")
     EVENT_RABBITMQ_USERNAME = environ.get("EVENT_RABBITMQ_USERNAME", "guest")
     EVENT_RABBITMQ_PASSWORD = environ.get("EVENT_RABBITMQ_PASSWORD", "guest")
-    EVENT_RABBITMQ_VHOST = environ.get("EVENT_RABBITMQ_VHOST", "event")
+    EVENT_RABBITMQ_VHOST = environ.get("EVENT_RABBITMQ_VHOST", "/")
     EVENT_RABBITMQ_PROTOCOL = environ.get("EVENT_RABBITMQ_PROTOCOL", "amqp")
     EVENT_RABBITMQ_PORT = environ.get("EVENT_RABBITMQ_PORT", "5672")
 
