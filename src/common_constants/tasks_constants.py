@@ -15,5 +15,5 @@ SCHEDULED_TASKS = {
     },
 }
 
-EMAIL_SUBJECT = "Expenses report for {report_name}"
+EMAIL_SUBJECT = "Expenses report for {date_ranges}"
 EMAIL_CONTENT = "Dear {user_name}, \n\nPlease find your expenses report here :\n\n{file_url}"

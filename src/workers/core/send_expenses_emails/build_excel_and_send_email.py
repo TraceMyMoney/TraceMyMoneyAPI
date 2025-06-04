@@ -23,7 +23,7 @@ def build_excel_and_send_email_task(self, data, exchange=None):
                 aggregated_data, start_date, end_date, report_name, user_id
             )
             file_url = send_email_to_user(
-                user_email, user.username, report_name_with_id
+                user_email, user.username, report_name_with_id, start_date, end_date
             )
             print(f"\nfile_url : {file_url}\n")
 
@@ -81,7 +81,7 @@ def build_excel_with_provided_data(
     return report_name_with_id
 
 
-def send_email_to_user(user_email, user_name, report_name):
+def send_email_to_user(user_email, user_name, report_name, start_date, end_date):
     s3 = S3Client()
     with open(report_name, "rb") as excel_file:
         file_url = s3.upload_public_file_obj(
@@ -96,7 +96,7 @@ def send_email_to_user(user_email, user_name, report_name):
 
     response = send_email(
         to_addr=user_email,
-        subject=EMAIL_SUBJECT.format(report_name=report_name),
+        subject=EMAIL_SUBJECT.format(date_ranges=f"{start_date} to {end_date}"),
         content=EMAIL_CONTENT.format(user_name=user_name, file_url=file_url)
     )
 
