@@ -11,12 +11,14 @@ from src.signals import expense_signals, user_signals
 
 import src.extensions as ext
 from src.common_constants.tasks_constants import SCHEDULED_TASKS
+from src.publishers.event_publisher import EventPublisher
 
 
 def create_app():
     app = Flask(__name__)
 
-    env = environ.get("TRACKTHEMONEY_ENV", "development")
+    env = environ.get("TRACKTHEMONEY_ENV", "test")
+    print(f"TRACKTHEMONEY_ENV set as : {env}")
     app_config = config[env]
     ext.connect_mongo()
     app.config.from_object(app_config)
@@ -41,5 +43,9 @@ def create_app():
 
     configure_logging(app)
     celery_app = ext.celery_init_app(app)
+
+    with app.app_context():
+        if env != "test":
+            EventPublisher().exchange_queue_binding()
 
     return app, celery_app

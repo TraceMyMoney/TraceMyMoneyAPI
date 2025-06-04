@@ -1,6 +1,12 @@
 from src.models.bank import Bank
+from src.models.user import User
 from src.models.expense import Expense
 from src.models.expense_entry_tag import ExpenseEntryTag
+from src.database import BaseMethods
+
+
+class UserDBMethods(BaseMethods):
+    model = User
 
 
 def calculate_aggregated_data_with_daterange(subscribed_users, start_date, end_date):
@@ -28,7 +34,7 @@ def calculate_aggregated_data_with_daterange(subscribed_users, start_date, end_d
 
         user = user_wise_aggregated_data.setdefault(str(user_id), {})
         bank = user.setdefault(bank_name, {})
-        day = bank.setdefault(data["_id"]["created_at"].strftime("%A"), {})
-        day[tag_name] = data["tags_wise_summation"]
+        bank.setdefault(tag_name, 0)
+        bank[tag_name] += data.get("tags_wise_summation", 0)
 
     return user_wise_aggregated_data

@@ -10,6 +10,31 @@ services:
       - ../env/.env.prod
     networks:
       - my_network
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  celery_worker_with_beat:
+    image: parimalmahindrakar/track_money_api:latest
+    command: celery -A manage.celery worker --beat --loglevel=info
+    env_file:
+      - ../env/.env.prod
+    networks:
+      - my_network
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  celery_worker_daily_expenses_emails:
+    image: parimalmahindrakar/track_money_api:latest
+    command: celery -A src.workers.celery_worker_send_daily_expenses_emails worker -l info -n send_daily_expenses_emails -c 1 -Ofair -Q daily_expenses_notifications_queue
+    env_file:
+      - ../env/.env.prod
+    networks:
+      - my_network
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
 
   rabbitmq:
     image: "rabbitmq:3-management"
@@ -19,6 +44,11 @@ services:
       - "15672:15672"
     networks:
       - my_network
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   nginx:
     image: parimalmahindrakar/tracemymoney_nginx:latest
@@ -28,6 +58,7 @@ services:
       - "443:443"
     volumes:
       - "/etc/ssl/certs/tm_keys:/etc/ssl/certs/tm_keys"
+      - "/etc/ssl/certs/rm_keys:/etc/ssl/certs/rm_keys"
     depends_on:
       - trackmoney_api
     networks:

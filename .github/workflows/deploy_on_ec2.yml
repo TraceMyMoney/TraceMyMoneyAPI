@@ -63,7 +63,6 @@ jobs:
       - name: Deploy on EC2
         run: |
           ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
-            # Step 1: Remove the directory
             DIRECTORY="/home/ubuntu/TrackMoneyAPI"
             if [ -d "$DIRECTORY" ]; then
               echo "Removing directory: $DIRECTORY"
@@ -72,18 +71,15 @@ jobs:
               echo "Directory does not exist: $DIRECTORY"
             fi
 
-            # Step 2: Stop all containers and remove Docker images
             echo "Stopping all containers and removing images"
             docker stop $(docker ps -aq)
             docker rm $(docker ps -aq)
             docker rmi $(docker images -q)
 
-            # Step 3: Clone the repository and navigate into the directory
             REPO_URL="git@github.com:parimalmahindrakar/TrackMoneyAPI.git"
             git clone $REPO_URL
             cd "$DIRECTORY"
 
-            # Step 4: Use docker-compose to bring up containers
             echo "Starting containers with docker-compose"
             docker compose -f docker-compose.yaml up -d
           EOF

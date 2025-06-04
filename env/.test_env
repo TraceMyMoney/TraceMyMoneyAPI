@@ -6,3 +6,4 @@ MONGO_DATABASE_URI=mongodb://admin:jKFLXJCoGgsVCoiO@localhost:27017/
 MONGO_DATABASE=trackmoney_api_test
 CELERY_BROKER_URL=amqp://guest:guest@localhost:5672//
 DEBUG=False
+TRACKTHEMONEY_ENV=test
