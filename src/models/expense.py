@@ -215,6 +215,15 @@ class Expense(Document):
                                 ]
                             }
                         },
+                        "topup_tags_wise_summation": {
+                            "$sum": {
+                                "$cond": [
+                                    {"$lt": ["$expenses.amount", 0]},
+                                    "$expenses.amount",
+                                    0,
+                                ]
+                            }
+                        }
                     }
                 },
             ]

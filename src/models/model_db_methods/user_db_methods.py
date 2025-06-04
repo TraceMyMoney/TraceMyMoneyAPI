@@ -36,5 +36,6 @@ def calculate_aggregated_data_with_daterange(subscribed_users, start_date, end_d
         bank = user.setdefault(bank_name, {})
         bank.setdefault(tag_name, 0)
         bank[tag_name] += data.get("tags_wise_summation", 0)
+        bank[tag_name] += data.get("topup_tags_wise_summation", 0)
 
     return user_wise_aggregated_data

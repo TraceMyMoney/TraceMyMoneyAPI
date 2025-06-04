@@ -57,11 +57,13 @@ def build_excel_with_provided_data(
         )
         row_count += 1
         summation_count_from = []
+        topup_summation_count_from = []
 
         for item, cost in related_data.items():
             worksheet.merge_range(row_count, col_count, row_count, col_count + 1, item)
-            worksheet.write(row_count, col_count + 2, cost)
-            summation_count_from.append(cost)
+            formatted_cost = cost if cost > 0 else f"+{abs(cost)}"
+            worksheet.write(row_count, col_count + 2, formatted_cost)
+            (summation_count_from if cost > 0 else topup_summation_count_from).append(cost)
             row_count += 1
 
         worksheet.merge_range(
@@ -70,7 +72,7 @@ def build_excel_with_provided_data(
         worksheet.write(
             row_count,
             col_count + 2,
-            sum(summation_count_from),
+            f"+{abs(sum(topup_summation_count_from))}, {sum(summation_count_from)}",
             bold_words,
         )
         row_count += 1
