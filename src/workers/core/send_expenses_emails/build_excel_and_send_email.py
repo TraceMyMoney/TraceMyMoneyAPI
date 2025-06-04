@@ -56,11 +56,12 @@ def build_excel_with_provided_data(
             row_count, col_count, row_count, col_count + 1, bank_name, centered_bold
         )
         row_count += 1
-        summation_count_from = row_count
+        summation_count_from = []
 
         for item, cost in related_data.items():
             worksheet.merge_range(row_count, col_count, row_count, col_count + 1, item)
             worksheet.write(row_count, col_count + 2, cost)
+            summation_count_from.append(cost)
             row_count += 1
 
         worksheet.merge_range(
@@ -69,7 +70,7 @@ def build_excel_with_provided_data(
         worksheet.write(
             row_count,
             col_count + 2,
-            f"=SUM(C{summation_count_from + 1}:C{row_count})",
+            sum(summation_count_from),
             bold_words,
         )
         row_count += 1
