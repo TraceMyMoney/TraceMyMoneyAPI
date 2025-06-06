@@ -47,12 +47,25 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
+      - name: Get Git version
+        id: git-version
+        run: |
+          BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          COMMIT=$(git rev-parse --short HEAD)
+          VERSION="${BRANCH}_${COMMIT}"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "::set-output name=version::$VERSION"
+
       - name: Build Docker Image
         run: |
-          docker build -t parimalmahindrakar/track_money_api:latest .
+          docker build -t parimalmahindrakar/track_money_api:${{ env.VERSION }} .
 
-      - name: Push Docker Image
+          # Tag it again with latest
+          docker tag parimalmahindrakar/track_money_api:${{ env.VERSION }} parimalmahindrakar/track_money_api:latest
+
+      - name: Push Docker Images
         run: |
+          docker push parimalmahindrakar/track_money_api:${{ env.VERSION }}
           docker push parimalmahindrakar/track_money_api:latest
 
       - name: Set up SSH
