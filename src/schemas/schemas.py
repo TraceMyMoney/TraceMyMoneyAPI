@@ -42,3 +42,10 @@ class ExpenseSchema(Schema):
     user_id = fields.String()
     created_at = fields.Date(DATE_TIME_FORMAT)
     updated_at = fields.Date(DATE_TIME_FORMAT)
+
+
+class UserPreferenceSchema(Schema):
+    user_id = fields.String()
+    is_dark_mode = fields.Boolean()
+    page_size = fields.Integer()
+    privacy_mode_enabled = fields.Boolean()
