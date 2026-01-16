@@ -51,3 +51,6 @@
 ## Live Demo
 
 [Check out the live app](https://app.stalk-my-money.in/)  
+- Please use the following credentials
+  - username: test
+  - password: test
