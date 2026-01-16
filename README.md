@@ -50,4 +50,4 @@
 
 ## Live Demo
 
-[Check out the live app](https://myapp.trace-my-money.life/)  
+[Check out the live app](https://app.stalk-my-money.in/)  
