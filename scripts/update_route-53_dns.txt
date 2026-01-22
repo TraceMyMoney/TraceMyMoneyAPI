@@ -1,0 +1,82 @@
+Step 1: Create an IAM Policy
+Your EC2 instance needs permission to edit your DNS records.
+Go to the IAM Console > Policies > Create Policy.
+Select the JSON tab and paste the following. Replace YOUR_HOSTED_ZONE_ID with your actual Zone ID (found in the Route 53 console).
+JSON
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "route53:ChangeResourceRecordSets",
+                "route53:ListResourceRecordSets"
+            ],
+            "Resource": "arn:aws:route53:::hostedzone/Z052522111KG6A7Q9AZQ2"
+        }
+    ]
+}
+Name it Route53UpdatePolicy and create it.
+Step 2: Create an IAM Role
+Go to IAM Console > Roles > Create role.
+Select AWS Service and choose EC2.
+Search for and attach the Route53UpdatePolicy you just created.
+Name the role (e.g., EC2-DNS-Updater-Role) and create it.
+Attach this role to your EC2 instance (Actions > Security > Modify IAM Role).
+
+
+
+/home/ubuntu/update_dns.sh
+--------------------------------------------------------------------------------
+#!/bin/bash
+# Configuration
+HOSTED_ZONE_ID="Z052522111KG6A7Q9AZQ2"
+RECORD_NAME="api.stalk-my-money.in"
+TTL=3600
+
+# Get the current Public IP of this instance
+# Get the current Public IP of this instance
+TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+IP=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" -s http://169.254.169.254/latest/meta-data/public-ipv4)
+
+echo ${IP}
+# Construct the JSON for the Route 53 update
+cat > /tmp/route53_changes.json << JSON
+{
+  "Comment": "Auto updating DNS from EC2",
+  "Changes": [
+    {
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "$RECORD_NAME",
+        "Type": "A",
+        "TTL": $TTL,
+        "ResourceRecords": [
+          {
+            "Value": "$IP"
+          }
+        ]
+      }
+    }
+  ]
+}
+JSON
+
+# Update Route 53
+aws route53 change-resource-record-sets --hosted-zone-id $HOSTED_ZONE_ID --change-batch file:///tmp/route53_changes.json
+
+docker compose -f /home/ubuntu/TrackMoneyAPI/docker-compose.yaml up -d
+--------------------------------------------------------------------------------
+
+
+# 2. Make the script executable and run it immediately for this session
+chmod +x /var/lib/cloud/scripts/per-boot/update_dns.sh
+<!-- 
+How it works:
+The UPSERT action tells Route 53: "If this record exists, update it; if not, create it."
+The script uses AWS Metadata (169.254.169.254) to find its own public IP.
+By placing the file in per-boot, it triggers automatically on every stop/start cycle.
+ -->
+Lastly, 
+<!-- crontab -e and paste the following thing into there -->
+@reboot /home/ubuntu/update_dns.sh >> /home/ubuntu/dns_update.log 2>&1
