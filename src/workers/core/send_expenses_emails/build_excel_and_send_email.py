@@ -95,11 +95,15 @@ def send_email_to_user(user_email, user_name, report_name, start_date, end_date)
             raise BadRequest(
                 "There was an exception while uploading Excel. Please try again."
             )
+        
+        # BASE_URL = "http://app.stalk-my-money.in"
+        # EXCEL_FILE_KEY ="reports/{report_name}"
+        custom_url = f"{config.get('BASE_URL')}/{config.get('EXCEL_FILE_KEY').format(report_name=report_name)}"
 
     response = send_email(
         to_addr=user_email,
         subject=EMAIL_SUBJECT.format(date_ranges=f"{start_date} to {end_date}"),
-        content=EMAIL_CONTENT.format(user_name=user_name, file_url=file_url)
+        content=EMAIL_CONTENT.format(user_name=user_name, file_url=custom_url)
     )
 
     if response.status_code == HTTPStatus.OK:

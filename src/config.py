@@ -30,14 +30,14 @@ class BaseConfig:
         EVENT_RABBITMQ_VHOST,
     )
     AWS_ACCESS_KEY_ID = environ.get("AWS_ACCESS_KEY_ID", "AWS_ACCESS_KEY_ID")
-    AWS_SECRET_ACCESS_KEY = environ.get(
-        "AWS_SECRET_ACCESS_KEY", "AWS_SECRET_ACCESS_KEY"
-    )
+    AWS_SECRET_ACCESS_KEY = environ.get("AWS_SECRET_ACCESS_KEY", "AWS_SECRET_ACCESS_KEY")
     EXCEL_UPLOAD_PATH = environ.get("EXCEL_UPLOAD_PATH", "EXCEL_UPLOAD_PATH")
     AWS_BUCKET_NAME = environ.get("AWS_BUCKET_NAME", "AWS_BUCKET_NAME")
     MAILGUN_URI = environ.get("MAILGUN_URI", "MAILGUN_URI")
     MAILGUN_API_KEY = environ.get("MAILGUN_API_KEY", "MAILGUN_API_KEY")
     MAILGUN_FROM_ADDR = environ.get("MAILGUN_FROM_ADDR", "MAILGUN_FROM_ADDR")
+    BASE_URL = environ.get("BASE_URL", "https://app.stalk-my-money.in")
+    EXCEL_FILE_KEY = environ.get("EXCEL_FILE_KEY", "reports/{report_name}")
 
 
 class DevelopmentConfig(BaseConfig):
