@@ -14,9 +14,11 @@ import src.extensions as ext
 from src.common_constants.tasks_constants import SCHEDULED_TASKS
 from src.publishers.event_publisher import EventPublisher
 
+from src.utils.restful_app import restful_app
 
 def create_app():
     app = Flask(__name__)
+    restful_app(app=app)
 
     env = environ.get("TRACKTHEMONEY_ENV", "test")
     print(f"TRACKTHEMONEY_ENV set as : {env}")

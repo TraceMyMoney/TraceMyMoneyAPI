@@ -18,3 +18,9 @@ class BaseMethods:
     @classmethod
     def get_all_record_with_(cls, **kwargs: Any) -> Collection:
         return cls.model.objects(**kwargs)
+
+    @classmethod
+    def create_record(cls, values):
+        obj = cls.model(**values)
+        obj.save()
+        return obj
