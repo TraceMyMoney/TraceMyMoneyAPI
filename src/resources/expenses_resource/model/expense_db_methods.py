@@ -21,6 +21,28 @@ class ExpenseDBMethods(BaseMethods):
         return self.bank.fetch()  # concept of lazy reference field
 
     @classmethod
+    def create_record(cls, data, bank, current_user) -> None:
+        from src.resources.expenses_resource.model.expense import ExpenseEntry
+        created_at = data.get("created_at")
+
+        ee_list = []
+        if data.get("expenses"):
+            for entry in data.get("expenses"):
+                expense_entry = ExpenseEntry(
+                    amount=entry.get("amount"),
+                    description=entry.get("description"),
+                    created_at=created_at,
+                    entry_tags=entry.get("selected_tags", []),
+                )
+
+                if entry.get("type"):
+                    expense_entry.expense_entry_type = entry.get("type")
+                ee_list.append(expense_entry)
+
+        expense = Expense(bank=bank, created_at=created_at, expenses=ee_list, user_id=str(current_user.id))
+        expense.save()
+
+    @classmethod
     def get_expenses(cls, current_user, **kwargs):
         # TODO: Make the default page_number and per_page as constants
         page_number = int(kwargs.get("page_number", 1))
@@ -60,7 +82,7 @@ class ExpenseDBMethods(BaseMethods):
 
         search_matcher = {f"${kwargs.get('operator', 'and')}": search_with_operator}
         expenses = list(
-            cls.objects.aggregate(
+            cls.model.objects.aggregate(
                 [
                     {"$match": search_matcher},
                     {"$unwind": "$expenses"},

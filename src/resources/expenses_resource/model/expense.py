@@ -1,12 +1,20 @@
 from mongoengine import *
 from datetime import datetime
 
-from src.models import expense_entry
+
+class ExpenseEntry(EmbeddedDocument):
+    amount = FloatField()
+    description = StringField()
+    expense_entry_type = StringField()
+    ee_id = SequenceField(primary_key=False)
+    entry_tags = ListField(StringField())
+    created_at = DateTimeField(default=datetime.now().date())
+    updated_at = DateTimeField(default=datetime.now().date())
 
 
 class Expense(Document):
     day = StringField()
-    expenses = EmbeddedDocumentListField(expense_entry.ExpenseEntry)
+    expenses = EmbeddedDocumentListField(ExpenseEntry)
     bank = LazyReferenceField("Bank", reverse_delete_rule=DENY)
     bank_name = StringField()
     expense_total = FloatField()

@@ -11,7 +11,7 @@ from src.resources.banks_resource.schemas import (
     BanksCreateResponseSchema,
     BankDeleteResponseSchema,
 )
-from src.resources.banks_resource.model.bank_methods import BankDBMethods
+from src.resources.banks_resource.model.bank_db_methods import BankDBMethods
 from src.helpers.authentication import token_required
 from src.constants import SUCCESS
 

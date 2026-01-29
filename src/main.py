@@ -42,8 +42,8 @@ def create_app():
     # app.register_blueprint(auth_bp, url_prefix="/")
     # app.register_blueprint(bank_bp, url_prefix="/banks")
     # app.register_blueprint(expense_bp, url_prefix="/expenses")
-    # app.register_blueprint(entry_tags_bp, url_prefix="/entry-tags")
-    # app.register_blueprint(user_preferences_bp, url_prefix="/user-preferences")
+    app.register_blueprint(entry_tags_bp, url_prefix="/entry-tags")
+    app.register_blueprint(user_preferences_bp, url_prefix="/user-preferences")
 
     configure_logging(app)
     celery_app = ext.celery_init_app(app)

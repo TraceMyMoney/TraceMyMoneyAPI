@@ -2,6 +2,7 @@ from functools import wraps
 from flask import current_app as app
 from webargs.flaskparser import abort
 from werkzeug.exceptions import UnprocessableEntity
+from mongoengine import NotUniqueError
 
 
 class AuthorizationException(Exception):
@@ -27,6 +28,9 @@ def exception_handle(fn):
             else:
                 msg = messages.get("json")
             return abort(400, message=str(msg))
+
+        except NotUniqueError as err:
+            return abort(400, message=str("Record already exists"))
 
         except AuthorizationException as e:
             return abort(401, message=str(e))
