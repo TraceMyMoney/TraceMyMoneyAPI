@@ -4,6 +4,10 @@ from webargs.flaskparser import abort
 from werkzeug.exceptions import UnprocessableEntity
 
 
+class AuthorizationException(Exception):
+    pass
+
+
 def exception_handle(fn):
     @wraps(fn)
     def wrapper(*args, **kwargs):
@@ -23,6 +27,9 @@ def exception_handle(fn):
             else:
                 msg = messages.get("json")
             return abort(400, message=str(msg))
+
+        except AuthorizationException as e:
+            return abort(401, message=str(e))
 
         except Exception as exc:
             app.logger.critical(exc)

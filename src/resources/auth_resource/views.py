@@ -8,7 +8,7 @@ from flask_apispec import marshal_with
 from src.extensions import config
 from src.common.base_resource import BaseResource
 from src.models.model_db_methods.user_db_methods import UserDBMethods
-from src.auth_resource.schema import (
+from src.resources.auth_resource.schema import (
     UserLoginRequestSchema,
     UserLoginResponseSchema,
     UserRegisterRequestSchema,
