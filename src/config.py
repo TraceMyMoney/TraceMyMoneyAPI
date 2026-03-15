@@ -12,6 +12,7 @@ class BaseConfig:
     DAILY_EXPENSES_NOTIFICATIONS_QUEUE = environ.get(
         "DAILY_EXPENSES_NOTIFICATIONS_QUEUE", "daily_expenses_notifications_queue"
     )
+    JWT_EXPIRATION_MINUTES = environ.get("JWT_EXPIRATION_MINUTES", 30)
 
     # celery
     EVENT_RABBITMQ_HOST = environ.get("EVENT_RABBITMQ_HOST", "localhost")

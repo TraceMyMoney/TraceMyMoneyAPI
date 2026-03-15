@@ -8,6 +8,10 @@ from src.database import BaseMethods
 class UserDBMethods(BaseMethods):
     model = User
 
+    @classmethod
+    def get_user_with_email_or_username(cls, username: str = None, email: str = None):
+        return cls.model.objects(__raw__={"$or": [{"username": username}, {"email": email}]}).first()
+
 
 def calculate_aggregated_data_with_daterange(subscribed_users, start_date, end_date):
     user_wise_aggregated_data = {}
