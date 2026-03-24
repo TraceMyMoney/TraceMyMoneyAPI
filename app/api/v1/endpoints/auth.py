@@ -13,7 +13,7 @@ router = APIRouter()
 async def login(credentials: LoginRequest, user_service: UserServiceDep):
     """
     Login with username and password to get a JWT access token.
-    Matches Flask response format: {"token": "...", "status_code": 201}
+    Matches Flask response format: {"token": "...", "status_code": 200}
     """
     user = await user_service.authenticate_user(credentials.username, credentials.password)
 
@@ -25,7 +25,7 @@ async def login(credentials: LoginRequest, user_service: UserServiceDep):
         data={"user_id": user.id, "user_name": user.username}, expires_delta=access_token_expires
     )
 
-    return {"token": access_token, "status_code": 201}
+    return {"token": access_token, "status_code": 200}
 
 
 @router.post("/register", status_code=200)

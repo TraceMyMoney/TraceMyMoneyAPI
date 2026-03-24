@@ -1,28 +1,20 @@
+import json
 from typing import Optional, List
 from fastapi import APIRouter, HTTPException, status, Query
+
 from app.api.deps import CurrentUser, ExpenseServiceDep
-from app.schemas.expense import ExpenseCreate
+from app.schemas.expense import ExpenseCreate, ExpenseListResponse
 from app.schemas.expense_entry import ExpenseEntryCreate, ExpenseEntryUpdate, ExpenseEntryAddRequest
 from app.schemas.common import AdvancedSearchParams
-import json
 
 router = APIRouter()
 
 
 @router.get("/")
 async def get_expenses(
-    current_user: CurrentUser,
-    expense_service: ExpenseServiceDep,
-    data: Optional[str] = Query(None, description="JSON string with search params"),
-    per_page: Optional[int] = Query(5),
-    page_number: Optional[int] = Query(1),
-    bank_id: Optional[str] = Query(None),
+    current_user: CurrentUser, expense_service: ExpenseServiceDep, data: Optional[str] = Query(None),
+    per_page: Optional[int] = Query(5), page_number: Optional[int] = Query(1), bank_id: Optional[str] = Query(None)
 ):
-    """
-    Get expenses with optional advanced search.
-    Matches Flask's complex querying system.
-    """
-    # Parse search parameters
     if data:
         try:
             params_dict = json.loads(data)
@@ -38,14 +30,9 @@ async def get_expenses(
         current_user.id, search_params
     )
 
-    # Format response to match Flask
-    results = expenses + [
-        {"total_expenses": total_count},
-        {"non_topup_total": non_topup_total},
-        {"topup_total": topup_total},
-    ]
-
-    return {"expenses": results}
+    return ExpenseListResponse(
+        expenses=expenses, total_expenses=total_count, non_topup_total=non_topup_total, topup_total=topup_total,
+    ).model_dump()
 
 
 @router.get("/graph-data")
@@ -97,7 +84,7 @@ async def create_bulk_expenses(
 async def add_expense_entry(
     expense_service: ExpenseServiceDep,
     current_user: CurrentUser,
-    id: str = Query(..., description="Expense ID"),
+    id: str,
     entries: ExpenseEntryAddRequest = None,
 ):
     """Add new entries to an existing expense."""

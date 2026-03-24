@@ -9,7 +9,7 @@ class ExpenseEntryCreate(BaseModel):
 
     amount: float
     description: str = Field(default="", max_length=200)
-    selected_tags: List[str] = Field(default_factory=list)
+    entry_tags: List[str] = Field(default_factory=list)
     type: ExpenseEntryType = ExpenseEntryType.EXPENSE
 
     model_config = {

@@ -50,7 +50,7 @@ class ExpenseService:
                 ee_id=ee_id,
                 amount=entry_data.amount,
                 description=entry_data.description,
-                entry_tags=entry_data.selected_tags,
+                entry_tags=entry_data.entry_tags,
                 expense_entry_type=entry_data.type,
                 created_at=created_at,
             )
@@ -206,7 +206,7 @@ class ExpenseService:
                 ee_id=ee_id,
                 amount=entry_data.amount,
                 description=entry_data.description,
-                entry_tags=entry_data.selected_tags,
+                entry_tags=entry_data.entry_tags,
                 expense_entry_type=entry_data.type,
                 created_at=expense.get("created_at", datetime.utcnow()),
             )

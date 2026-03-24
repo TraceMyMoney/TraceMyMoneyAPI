@@ -1,7 +1,10 @@
 from typing import List, Optional
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer
 from app.schemas.expense_entry import ExpenseEntryCreate, ExpenseEntryResponse
+
+
+DATE_TIME_FORMAT = "%d/%m/%Y %H:%M"
 
 
 class ExpenseBase(BaseModel):
@@ -50,9 +53,13 @@ class ExpenseResponse(BaseModel):
     day: str
     expenses: List[ExpenseEntryResponse]
     expense_total: float
-    topup_expense_total: Optional[float] = 0.0 
+    topup_expense_total: Optional[float] = 0.0
     remaining_amount_till_now: float
     created_at: datetime
+
+    @field_serializer("created_at")
+    def serialize_created_at(self, value: datetime) -> str:
+        return value.strftime(DATE_TIME_FORMAT)
 
     model_config = {
         "populate_by_name": True,
