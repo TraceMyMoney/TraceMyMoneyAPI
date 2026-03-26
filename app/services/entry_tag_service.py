@@ -10,12 +10,12 @@ class EntryTagService:
     """Service for expense entry tag-related business logic."""
 
     def __init__(self, db: AsyncIOMotorDatabase):
-        self.collection = db.expense_entry_tags
+        self.collection = db.expense_entry_tag
 
     async def create_tag(self, user_id: str, tag_data: EntryTagCreate) -> ExpenseEntryTagModel:
         """Create a new entry tag."""
         # Check if tag with same name already exists for user
-        existing = await self.collection.find_one({"user_id": user_id, "name": tag_data.name})
+        existing = await self.collection.find_one({"user_id": ObjectId(user_id), "name": tag_data.name})
         if existing:
             raise ValueError(f"Tag with name '{tag_data.name}' already exists")
 
@@ -30,7 +30,7 @@ class EntryTagService:
 
     async def get_tags(self, user_id: str) -> List[ExpenseEntryTagModel]:
         """Get all tags for a user."""
-        cursor = self.collection.find({"user_id": user_id})
+        cursor = self.collection.find({"user_id": ObjectId(user_id)})
         tags = await cursor.to_list(length=None)
 
         for tag in tags:

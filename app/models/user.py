@@ -10,7 +10,7 @@ class UserModel(BaseModel):
     id: Optional[str] = Field(default=None, alias="_id")
     username: str = Field(..., min_length=7, max_length=20)
     email: str
-    hashed_password: str
+    password: str
     is_subscribed_to_emails: bool = True
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

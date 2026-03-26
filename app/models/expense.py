@@ -10,7 +10,7 @@ class ExpenseModel(BaseModel):
 
     id: Optional[str] = Field(default=None, alias="_id")
     user_id: str
-    bank_id: str
+    bank: str
     bank_name: str = ""
     day: str = ""  # Day of week or date string
     expenses: List[ExpenseEntryModel] = Field(default_factory=list)
@@ -19,7 +19,7 @@ class ExpenseModel(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
-    @field_validator("id", "user_id", "bank_id", mode="before")
+    @field_validator("id", "user_id", "bank", mode="before")
     @classmethod
     def convert_objectid_to_str(cls, v):
         """Convert ObjectId to string if needed."""

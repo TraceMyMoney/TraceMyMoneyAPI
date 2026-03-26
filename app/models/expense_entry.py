@@ -14,7 +14,7 @@ class ExpenseEntryType(str, Enum):
 class ExpenseEntryModel(BaseModel):
     """Embedded Expense Entry Document."""
 
-    ee_id: str = Field(..., description="Unique entry ID")
+    ee_id: str | int = Field(..., description="Unique entry ID")
     amount: float = Field(..., description="Amount (positive for expense, negative for topup)")
     description: str = Field(default="", max_length=200)
     entry_tags: List[str] = Field(default_factory=list, description="List of tag IDs")

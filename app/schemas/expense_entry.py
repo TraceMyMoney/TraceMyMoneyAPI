@@ -17,7 +17,7 @@ class ExpenseEntryCreate(BaseModel):
             "example": {
                 "amount": 50.00,
                 "description": "Grocery shopping",
-                "selected_tags": ["groceries", "food"],
+                "entry_tags": ["<bson_id>", "<bson_id>"],
                 "type": "expense",
             }
         }
@@ -30,7 +30,7 @@ class ExpenseEntryUpdate(BaseModel):
     expense_id: str
     entry_id: str
     updated_description: Optional[str] = Field(None, max_length=200)
-    selected_tags: Optional[List[str]] = None
+    entry_tags: Optional[List[str]] = None
 
     model_config = {
         "json_schema_extra": {
@@ -38,7 +38,7 @@ class ExpenseEntryUpdate(BaseModel):
                 "expense_id": "507f1f77bcf86cd799439011",
                 "entry_id": "ee_123456",
                 "updated_description": "Updated description",
-                "selected_tags": ["tag1", "tag2"],
+                "entry_tags": ["tag1", "tag2"],
             }
         }
     }
@@ -47,11 +47,11 @@ class ExpenseEntryUpdate(BaseModel):
 class ExpenseEntryResponse(BaseModel):
     """Expense entry schema for API responses."""
 
-    ee_id: str
-    amount: float
+    ee_id: str | int 
+    amount: float 
     description: str
-    entry_tags: List[str]
-    expense_entry_type: ExpenseEntryType
+    entry_tags: List[str] | None = None
+    expense_entry_type: str | None = None
     created_at: datetime
 
     model_config = {

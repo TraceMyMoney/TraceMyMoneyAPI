@@ -10,7 +10,7 @@ class UserPreferenceService:
     """Service for user preference-related business logic."""
 
     def __init__(self, db: AsyncIOMotorDatabase):
-        self.collection = db.user_preferences
+        self.collection = db.user_preference
 
     async def get_or_create_preferences(self, user_id: str) -> UserPreferenceModel:
         """Get user preferences or create default if doesn't exist."""

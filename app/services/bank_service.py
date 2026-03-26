@@ -10,7 +10,7 @@ class BankService:
     """Service for bank-related business logic."""
 
     def __init__(self, db: AsyncIOMotorDatabase):
-        self.collection = db.banks
+        self.collection = db.bank
         self.expenses_collection = db.expenses
 
     async def create_bank(self, user_id: str, bank_data: BankCreate) -> BankModel:
@@ -41,7 +41,7 @@ class BankService:
         self, user_id: str, bank_id: Optional[str] = None, name: Optional[str] = None
     ) -> List[BankModel]:
         """Get banks for a user with optional filters."""
-        query = {"user_id": user_id}
+        query = {"user_id": ObjectId(user_id)}
 
         if bank_id and ObjectId.is_valid(bank_id):
             query["_id"] = ObjectId(bank_id)

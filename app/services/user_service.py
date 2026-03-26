@@ -11,7 +11,7 @@ class UserService:
     """Service for user-related business logic."""
 
     def __init__(self, db: AsyncIOMotorDatabase):
-        self.collection = db.users
+        self.collection = db.user
 
     async def create_user(self, user_data: UserCreate) -> UserModel:
         """Create a new user."""
@@ -87,6 +87,6 @@ class UserService:
         user = await self.get_user_by_username(username)
         if not user:
             return None
-        if not verify_password(password, user.hashed_password):
+        if not verify_password(password, user.password):
             return None
         return user

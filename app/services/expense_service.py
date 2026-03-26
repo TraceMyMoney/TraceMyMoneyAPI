@@ -15,9 +15,9 @@ class ExpenseService:
     """Service for expense-related business logic."""
 
     def __init__(self, db: AsyncIOMotorDatabase):
-        self.collection = db.expenses
-        self.banks_collection = db.banks
-        self.tags_collection = db.expense_entry_tags
+        self.collection = db.expense
+        self.banks_collection = db.bank
+        self.tags_collection = db.expense_entry_tag
 
     async def create_expense(self, user_id: str, expense_data: ExpenseCreate) -> ExpenseModel:
         """Create a new expense with entries."""
@@ -34,7 +34,7 @@ class ExpenseService:
 
         # Check if expense already exists for this date
         existing = await self.collection.find_one(
-            {"bank_id": expense_data.bank_id, "user_id": user_id, "created_at": created_at}
+            {"bank": ObjectId(expense_data.bank_id), "user_id": ObjectId(user_id), "created_at": created_at}
         )
 
         if existing:
@@ -55,16 +55,15 @@ class ExpenseService:
                 created_at=created_at,
             )
             entries.append(entry)
-            if entry.amount > 0:
-                total_amount += entry.amount
+            total_amount += entry.amount
 
         # Get current bank balance for remaining_amount calculation
         remaining_balance = bank.get("current_balance", 0) - total_amount
 
         # Create expense document
         expense_dict = {
-            "user_id": user_id,
-            "bank_id": expense_data.bank_id,
+            "user_id": ObjectId(user_id),
+            "bank": ObjectId(expense_data.bank_id),
             "bank_name": bank.get("name", ""),
             "day": created_at.strftime("%A"),  # Day of week
             "expenses": [entry.model_dump() for entry in entries],
@@ -96,7 +95,7 @@ class ExpenseService:
         Returns: (expenses, total_count, non_topup_total, topup_total)
         """
         # Build match query
-        match_conditions = [{"user_id": user_id}]
+        match_conditions = [{"user_id": ObjectId(user_id)}]
 
         if params.advanced_search:
             # Advanced search filters
@@ -109,8 +108,8 @@ class ExpenseService:
                 )
 
             if params.search_by_bank_ids:
-                bank_ids = [bid for bid in params.search_by_bank_ids if ObjectId.is_valid(bid)]
-                match_conditions.append({"bank_id": {"$in": bank_ids}})
+                bank_ids = [ObjectId(bid) for bid in params.search_by_bank_ids if ObjectId.is_valid(bid)]
+                match_conditions.append({"bank": {"$in": bank_ids}})
 
             if params.search_by_daterange:
                 date_condition = {
@@ -124,7 +123,7 @@ class ExpenseService:
         else:
             # Simple bank filter
             if params.bank_id and ObjectId.is_valid(params.bank_id):
-                match_conditions.append({"bank_id": params.bank_id})
+                match_conditions.append({"bank": ObjectId(params.bank_id)})
 
         # Build aggregation pipeline
         match_query = {f"${params.operator}": match_conditions}
@@ -192,7 +191,9 @@ class ExpenseService:
         if not ObjectId.is_valid(expense_id):
             return None
 
-        expense = await self.collection.find_one({"_id": ObjectId(expense_id), "user_id": user_id})
+        expense = await self.collection.find_one(
+            {"_id": ObjectId(expense_id), "user_id": ObjectId(user_id)}
+        )
         if not expense:
             return None
 
@@ -211,27 +212,27 @@ class ExpenseService:
                 created_at=expense.get("created_at", datetime.utcnow()),
             )
             new_entries.append(entry.model_dump())
-            if entry.amount > 0:
-                total_added += entry.amount
+            total_added += entry.amount
+
+        remaining_balance = expense.get("remaining_amount_till_now", 0) - total_added
 
         # Update expense
         result = await self.collection.find_one_and_update(
-            {"_id": ObjectId(expense_id), "user_id": user_id},
+            {"_id": ObjectId(expense_id), "user_id": ObjectId(user_id)},
             {
                 "$push": {"expenses": {"$each": new_entries}},
                 "$inc": {"expense_total": total_added},
-                "$set": {"updated_at": datetime.utcnow()},
+                "$set": {"updated_at": datetime.utcnow(), "remaining_amount_till_now": remaining_balance},
             },
             return_document=True,
         )
 
         if result:
             # Update bank balance
-            if total_added > 0:
-                await self.banks_collection.update_one(
-                    {"_id": ObjectId(expense.get("bank_id"))},
-                    {"$inc": {"current_balance": -total_added, "total_disbursed_till_now": total_added}},
-                )
+            await self.banks_collection.update_one(
+                {"_id": ObjectId(expense.get("bank"))},
+                {"$inc": {"current_balance": -total_added, "total_disbursed_till_now": total_added}},
+            )
 
             result["_id"] = str(result["_id"])
             return ExpenseModel(**result)
@@ -246,8 +247,8 @@ class ExpenseService:
         update_dict = {}
         if update_data.updated_description is not None:
             update_dict["expenses.$.description"] = update_data.updated_description
-        if update_data.selected_tags is not None:
-            update_dict["expenses.$.entry_tags"] = update_data.selected_tags
+        if update_data.entry_tags is not None:
+            update_dict["expenses.$.entry_tags"] = update_data.entry_tags
 
         if not update_dict:
             return None
@@ -257,7 +258,7 @@ class ExpenseService:
         result = await self.collection.find_one_and_update(
             {
                 "_id": ObjectId(update_data.expense_id),
-                "user_id": user_id,
+                "user_id": ObjectId(user_id),
                 "expenses.ee_id": update_data.entry_id,
             },
             {"$set": update_dict},
@@ -281,34 +282,47 @@ class ExpenseService:
         if not ObjectId.is_valid(expense_id):
             return False
 
-        expense = await self.collection.find_one({"_id": ObjectId(expense_id), "user_id": user_id})
+        expense = await self.collection.find_one(
+            {"_id": ObjectId(expense_id), "user_id": ObjectId(user_id)}
+        )
         if not expense:
             return False
 
-        # Find the entry to delete
         entry_to_delete = None
         for entry in expense.get("expenses", []):
-            if entry.get("ee_id") == entry_id:
+            if str(entry.get("ee_id")) == entry_id:
                 entry_to_delete = entry
                 break
 
         if not entry_to_delete:
             return False
 
-        # Remove entry and update totals
-        result = await self.collection.update_one(
-            {"_id": ObjectId(expense_id), "user_id": user_id},
-            {"$pull": {"expenses": {"ee_id": entry_id}}, "$set": {"updated_at": datetime.utcnow()}},
-        )
+        if len(expense["expenses"]) == 1:
+            result = await self.collection.delete_one(
+                {"_id": ObjectId(expense_id), "user_id": ObjectId(user_id)}
+            )
+        else:
+            remaining_balance = expense.get("remaining_amount_till_now", 0) + entry_to_delete.get(
+                "amount", 0
+            )
+            result = await self.collection.update_one(
+                {"_id": ObjectId(expense_id), "user_id": ObjectId(user_id)},
+                {
+                    "$pull": {"expenses": {"ee_id": entry_id}},
+                    "$set": {
+                        "updated_at": datetime.utcnow(),
+                        "remaining_amount_till_now": remaining_balance,
+                    },
+                },
+            )
 
-        if result.modified_count > 0:
+        if getattr(result, "modified_count", 0) > 0 or getattr(result, "deleted_count", 0) > 0:
             # Update bank balance if it was a positive expense
             amount = entry_to_delete.get("amount", 0)
-            if amount > 0:
-                await self.banks_collection.update_one(
-                    {"_id": ObjectId(expense.get("bank_id"))},
-                    {"$inc": {"current_balance": amount, "total_disbursed_till_now": -amount}},
-                )
+            await self.banks_collection.update_one(
+                {"_id": ObjectId(expense.get("bank"))},
+                {"$inc": {"current_balance": amount, "total_disbursed_till_now": -amount}},
+            )
             return True
         return False
 
@@ -317,26 +331,29 @@ class ExpenseService:
         if not ObjectId.is_valid(expense_id):
             return False
 
-        expense = await self.collection.find_one({"_id": ObjectId(expense_id), "user_id": user_id})
+        expense = await self.collection.find_one(
+            {"_id": ObjectId(expense_id), "user_id": ObjectId(user_id)}
+        )
         if not expense:
             return False
 
         # Delete expense
-        result = await self.collection.delete_one({"_id": ObjectId(expense_id), "user_id": user_id})
+        result = await self.collection.delete_one(
+            {"_id": ObjectId(expense_id), "user_id": ObjectId(user_id)}
+        )
 
         if result.deleted_count > 0:
             # Update bank balance
             expense_total = expense.get("expense_total", 0)
-            if expense_total > 0:
-                await self.banks_collection.update_one(
-                    {"_id": ObjectId(expense.get("bank_id"))},
-                    {
-                        "$inc": {
-                            "current_balance": expense_total,
-                            "total_disbursed_till_now": -expense_total,
-                        }
-                    },
-                )
+            await self.banks_collection.update_one(
+                {"_id": ObjectId(expense.get("bank"))},
+                {
+                    "$inc": {
+                        "current_balance": expense_total,
+                        "total_disbursed_till_now": -expense_total,
+                    }
+                },
+            )
             return True
         return False
 

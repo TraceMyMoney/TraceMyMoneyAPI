@@ -1,6 +1,7 @@
 from typing import List, Optional
+from bson import ObjectId
 from datetime import datetime
-from pydantic import BaseModel, Field, field_serializer
+from pydantic import BaseModel, Field, field_serializer, field_validator
 from app.schemas.expense_entry import ExpenseEntryCreate, ExpenseEntryResponse
 
 
@@ -60,6 +61,13 @@ class ExpenseResponse(BaseModel):
     @field_serializer("created_at")
     def serialize_created_at(self, value: datetime) -> str:
         return value.strftime(DATE_TIME_FORMAT)
+
+    @field_validator("id", "user_id", mode="before")
+    @classmethod
+    def convert_objectid(cls, v):
+        if isinstance(v, ObjectId):
+            return str(v)
+        return v
 
     model_config = {
         "populate_by_name": True,

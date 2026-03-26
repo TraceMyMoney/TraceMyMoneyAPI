@@ -82,9 +82,9 @@ async def create_bulk_expenses(
 
 @router.patch("/add-entry", status_code=201)
 async def add_expense_entry(
+    id: str,
     expense_service: ExpenseServiceDep,
     current_user: CurrentUser,
-    id: str,
     entries: ExpenseEntryAddRequest = None,
 ):
     """Add new entries to an existing expense."""
