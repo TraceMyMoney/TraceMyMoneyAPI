@@ -14,7 +14,7 @@ class ExpenseEntrySchema(Schema):
     amount = fields.Float()
     description = fields.String()
     expense_entry_type = fields.String()
-    ee_id = fields.Integer()
+    ee_id = fields.String()
     entry_tags = fields.List(fields.String())
     created_at = fields.Date(DATE_TIME_FORMAT)
     updated_at = fields.Date(DATE_TIME_FORMAT)
