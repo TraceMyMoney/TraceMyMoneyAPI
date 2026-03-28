@@ -16,7 +16,7 @@ class BankService:
     async def create_bank(self, user_id: str, bank_data: BankCreate) -> BankModel:
         """Create a new bank."""
         bank_dict = bank_data.model_dump()
-        bank_dict["user_id"] = user_id
+        bank_dict["user_id"] = ObjectId(user_id)
 
         # Handle created_at if provided
         if bank_data.created_at:
@@ -92,15 +92,15 @@ class BankService:
             return False
 
         # First check if bank exists
-        bank = await self.collection.find_one({"_id": ObjectId(bank_id), "user_id": user_id})
+        bank = await self.collection.find_one({"_id": ObjectId(bank_id), "user_id": ObjectId(user_id)})
         if not bank:
             return False
 
         # Delete all expenses associated with this bank
-        await self.expenses_collection.delete_many({"bank_id": bank_id, "user_id": user_id})
+        await self.expenses_collection.delete_many({"bank_id": ObjectId(bank_id), "user_id": ObjectId(user_id)})
 
         # Delete the bank
-        result = await self.collection.delete_one({"_id": ObjectId(bank_id), "user_id": user_id})
+        result = await self.collection.delete_one({"_id": ObjectId(bank_id), "user_id": ObjectId(user_id)})
         return result.deleted_count > 0
 
     async def update_bank_balance(

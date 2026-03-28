@@ -1,20 +1,34 @@
 from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 class UserBase(BaseModel):
     """Base user schema."""
 
     email: EmailStr
-    username: str = Field(..., min_length=7, max_length=20)
+    username: str
+
+    @field_validator("username")
+    @classmethod
+    def validate_username(cls, value: str):
+        if len(value) < 7 or len(value) > 20:
+            raise ValueError("Username must be at least 8-20 characters long.")
+        return value
 
 
 class UserCreate(UserBase):
     """Schema for creating a user (registration)."""
 
-    password: str = Field(..., min_length=8)
+    password: str
     is_subscribed_to_emails: Optional[bool] = True
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, value: str):
+        if len(value) < 8:
+            raise ValueError("Password must be at least 8 characters long.")
+        return value
 
 
 class UserUpdate(BaseModel):

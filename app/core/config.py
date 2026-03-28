@@ -21,7 +21,7 @@ class Settings(BaseSettings):
 
     # CORS
     BACKEND_CORS_ORIGINS: List[str] = environ.get(
-        "BACKEND_CORS_ORIGINS", ["http://localhost:5173", "http://127.0.0.1:5173"]
+        "BACKEND_CORS_ORIGINS", ["http://localhost:5173", "http://127.0.0.1:5173", "https://app.stalk-my-money.in"]
     )
 
     # Optional: Celery

@@ -20,7 +20,7 @@ class EntryTagService:
             raise ValueError(f"Tag with name '{tag_data.name}' already exists")
 
         tag_dict = tag_data.model_dump()
-        tag_dict["user_id"] = user_id
+        tag_dict["user_id"] = ObjectId(user_id)
         tag_dict["created_at"] = datetime.utcnow()
 
         result = await self.collection.insert_one(tag_dict)
@@ -43,7 +43,7 @@ class EntryTagService:
         if not ObjectId.is_valid(tag_id):
             return None
 
-        tag = await self.collection.find_one({"_id": ObjectId(tag_id), "user_id": user_id})
+        tag = await self.collection.find_one({"_id": ObjectId(tag_id), "user_id": ObjectId(user_id)})
         if tag:
             tag["_id"] = str(tag["_id"])
             return ExpenseEntryTagModel(**tag)
@@ -62,7 +62,7 @@ class EntryTagService:
             return None
 
         result = await self.collection.find_one_and_update(
-            {"_id": ObjectId(tag_id), "user_id": user_id}, {"$set": update_data}, return_document=True
+            {"_id": ObjectId(tag_id), "user_id": ObjectId(user_id)}, {"$set": update_data}, return_document=True
         )
 
         if result:
@@ -75,5 +75,5 @@ class EntryTagService:
         if not ObjectId.is_valid(tag_id):
             return False
 
-        result = await self.collection.delete_one({"_id": ObjectId(tag_id), "user_id": user_id})
+        result = await self.collection.delete_one({"_id": ObjectId(tag_id), "user_id": ObjectId(user_id)})
         return result.deleted_count > 0
