@@ -14,9 +14,11 @@ import src.extensions as ext
 from src.common_constants.tasks_constants import SCHEDULED_TASKS
 from src.publishers.event_publisher import EventPublisher
 
+from src.utils.restful_app import restful_app
 
 def create_app():
     app = Flask(__name__)
+    restful_app(app=app)
 
     env = environ.get("TRACKTHEMONEY_ENV", "test")
     print(f"TRACKTHEMONEY_ENV set as : {env}")
@@ -37,9 +39,9 @@ def create_app():
         )
     )
 
-    app.register_blueprint(auth_bp, url_prefix="/")
-    app.register_blueprint(bank_bp, url_prefix="/banks")
-    app.register_blueprint(expense_bp, url_prefix="/expenses")
+    # app.register_blueprint(auth_bp, url_prefix="/")
+    # app.register_blueprint(bank_bp, url_prefix="/banks")
+    # app.register_blueprint(expense_bp, url_prefix="/expenses")
     app.register_blueprint(entry_tags_bp, url_prefix="/entry-tags")
     app.register_blueprint(user_preferences_bp, url_prefix="/user-preferences")
 
