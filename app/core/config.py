@@ -1,29 +1,32 @@
+import json
 from pydantic_settings import BaseSettings
 from typing import List
-import json
+from os import environ
 
 
 class Settings(BaseSettings):
     # Application
-    PROJECT_NAME: str = "Stalk My Money API"
-    VERSION: str = "1.0.0"
-    DEBUG: bool = False
+    PROJECT_NAME: str = environ.get("PROJECT_NAME", "Stalk My Money API")
+    VERSION: str = environ.get("VERSION", "1.0.0")
+    DEBUG: bool = environ.get("DEBUG", False)
 
     # MongoDB
-    MONGODB_URL: str = "mongodb://admin:jKFLXJCoGgsVCoiO@localhost:27017/"
-    MONGODB_DB_NAME: str = "stalk_my_money"
+    MONGODB_URL: str = environ.get("MONGODB_URL", "mongodb://admin:jKFLXJCoGgsVCoiO@localhost:27017/")
+    MONGODB_DB_NAME: str = environ.get("MONGODB_DB_NAME", "stalk_my_money")
 
     # Security
-    SECRET_KEY: str = "this_is_secret_key"
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    SECRET_KEY: str = environ.get("SECRET_KEY", "this_is_secret_key")
+    ALGORITHM: str = environ.get("ALGORITHM", "HS256")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", 30)
 
     # CORS
-    BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    BACKEND_CORS_ORIGINS: List[str] = environ.get(
+        "BACKEND_CORS_ORIGINS", ["http://localhost:5173", "http://127.0.0.1:5173"]
+    )
 
     # Optional: Celery
-    CELERY_BROKER_URL: str = "redis://localhost:6379/0"
-    CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"
+    CELERY_BROKER_URL: str = environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
+    CELERY_RESULT_BACKEND: str = environ.get("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
 
     class Config:
         env_file = ".env"

@@ -1,0 +1,100 @@
+name: CI/CD - Build, Push & Deploy
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  build-test-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # - name: Start MongoDB
+      #   uses: supercharge/mongodb-github-action@1.12.0
+      #   with:
+      #     mongodb-version: '8'
+      #     mongodb-root-username: admin
+      #     mongodb-root-password: ${{ secrets.MONGO_PASSWORD }}
+
+      # - name: Load test env
+      #   run: |
+      #     set -a
+      #     source ./env/.test_env
+      #     set +a
+
+      # - name: Run pytest
+      #   run: pytest
+
+      - name: Set Version
+        run: |
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          VERSION="${{ github.ref_name }}_${SHORT_SHA}"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build Docker Image
+        run: |
+          docker build -t parimalmahindrakar/track_money_api:${{ env.VERSION }} .
+
+      - name: Push Branch Image
+        run: |
+          docker push parimalmahindrakar/track_money_api:${{ env.VERSION }}
+
+      - name: Tag & Push latest (master only)
+        if: github.ref_name == 'master'
+        run: |
+          docker tag parimalmahindrakar/track_money_api:${{ env.VERSION }} \
+                     parimalmahindrakar/track_money_api:latest
+          docker push parimalmahindrakar/track_money_api:latest
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-test-push
+    if: github.ref_name == 'master'
+
+    steps:
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.5.3
+        with:
+          ssh-private-key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+
+      - name: Deploy to EC2
+        run: |
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          VERSION="${{ github.ref_name }}_${SHORT_SHA}"
+
+          ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} << EOF
+
+            echo "Pulling latest production image..."
+            docker pull parimalmahindrakar/track_money_api:latest
+
+            echo "Stopping existing containers..."
+            docker compose down || true
+
+            echo "Starting updated containers..."
+            docker compose up -d
+
+            echo "Deployment completed successfully!"
+
+          EOF
