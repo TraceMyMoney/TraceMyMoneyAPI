@@ -57,7 +57,6 @@ class ChatService:
         pipeline = json.loads(pipeline_str)
         pipeline = self._resolve_dates(pipeline)
         pipeline = self._inject_user_id(pipeline, user_id)
-        pipeline = self._ensure_user_filter(pipeline, user_id)
 
         return pipeline
 
@@ -111,7 +110,6 @@ class ChatService:
         return obj
 
     def _inject_user_id(self, obj, user_id: str):
-        """Replace string user_id with real ObjectId."""
         if isinstance(obj, dict):
             return {
                 k: (
@@ -124,18 +122,6 @@ class ChatService:
         if isinstance(obj, list):
             return [self._inject_user_id(i, user_id) for i in obj]
         return obj
-
-    def _ensure_user_filter(self, pipeline: list, user_id: str) -> list:
-        """Make sure first stage always filters by user_id."""
-        if not pipeline:
-            return pipeline
-        first = pipeline[0]
-        if "$match" in first:
-            if "user_id" not in first["$match"]:
-                first["$match"]["user_id"] = ObjectId(user_id)
-        else:
-            pipeline.insert(0, {"$match": {"user_id": ObjectId(user_id)}})
-        return pipeline
 
     def _serialize(self, obj):
         """Convert ObjectId and datetime to JSON-serializable types."""
