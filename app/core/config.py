@@ -12,7 +12,7 @@ class Settings(BaseSettings):
 
     # MongoDB
     MONGODB_URL: str = environ.get("MONGODB_URL", "mongodb://admin:jKFLXJCoGgsVCoiO@localhost:27017/")
-    MONGODB_DB_NAME: str = environ.get("MONGODB_DB_NAME", "stalk_my_money")
+    MONGODB_DB_NAME: str = environ.get("MONGODB_DB_NAME", "trackmoney_api")
 
     # Security
     SECRET_KEY: str = environ.get("SECRET_KEY", "this_is_secret_key")
@@ -21,12 +21,15 @@ class Settings(BaseSettings):
 
     # CORS
     BACKEND_CORS_ORIGINS: List[str] = environ.get(
-        "BACKEND_CORS_ORIGINS", ["http://localhost:5173", "http://127.0.0.1:5173", "https://app.stalk-my-money.in"]
+        "BACKEND_CORS_ORIGINS",
+        ["http://localhost:5173", "http://127.0.0.1:5173", "https://app.stalk-my-money.in"],
     )
 
     # Optional: Celery
     CELERY_BROKER_URL: str = environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
     CELERY_RESULT_BACKEND: str = environ.get("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
+    GROQ_API_KEY: str = environ.get("GROQ_API_KEY", "test_api_key")
+    GROQ_MODEL_NAME: str = environ.get("GROQ_MODEL_NAME", "test_model_name")
 
     class Config:
         env_file = ".env"

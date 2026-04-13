@@ -13,7 +13,7 @@ services:
     networks:
       - app-network
 
-    command: uvicorn main:app --host 0.0.0.0 --port 5000 --reload
+    command: uv run uvicorn main:app --host 0.0.0.0 --port 5000 --reload
 
   rabbitmq:
     image: "rabbitmq:3-management"
