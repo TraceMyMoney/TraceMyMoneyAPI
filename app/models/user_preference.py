@@ -2,7 +2,6 @@ from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, Field, field_validator
 from bson import ObjectId
-from typing import Optional
 
 
 class UserPreferenceModel(BaseModel):
@@ -13,6 +12,7 @@ class UserPreferenceModel(BaseModel):
     page_size: int = Field(default=5, ge=1, le=100)
     is_dark_mode: bool = False
     privacy_mode_enabled: Optional[bool] = None
+    banks_display_order: list[str] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
