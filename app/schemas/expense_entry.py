@@ -27,8 +27,8 @@ class ExpenseEntryCreate(BaseModel):
 class ExpenseEntryUpdate(BaseModel):
     """Schema for updating an expense entry."""
 
-    expense_id: str
-    entry_id: str
+    expense_id: str | int
+    entry_id: str | int
     updated_description: Optional[str] = Field(None, max_length=200)
     entry_tags: Optional[List[str]] = None
 
