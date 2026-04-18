@@ -43,6 +43,13 @@ class ExpenseService:
         # Create expense entries
         entries = []
         total_amount = 0
+        prev_expense = await self.collection.find_one(
+            {"bank": ObjectId(expense_data.bank_id), "user_id": ObjectId(user_id), "created_at": {"$lt": created_at}},
+            sort=[("created_at", -1)]
+        )
+        after_expenses = await self.collection.find(
+            {"bank": ObjectId(expense_data.bank_id), "user_id": ObjectId(user_id), "created_at": {"$gt": created_at}}
+        ).to_list(length=None)
 
         for entry_data in expense_data.expenses:
             ee_id = f"ee_{uuid.uuid4().hex[:12]}"
@@ -58,7 +65,9 @@ class ExpenseService:
             total_amount += entry.amount
 
         # Get current bank balance for remaining_amount calculation
-        remaining_balance = bank.get("current_balance", 0) - total_amount
+        remaining_balance = (
+            prev_expense["remaining_amount_till_now"] if prev_expense else bank.get("current_balance", 0)
+        ) - total_amount
 
         # Create expense document
         expense_dict = {
@@ -83,6 +92,11 @@ class ExpenseService:
                 "$inc": {"current_balance": -total_amount, "total_disbursed_till_now": total_amount},
                 "$set": {"updated_at": datetime.utcnow()},
             },
+        )
+
+        await self.collection.update_many(
+            {"_id": {"$in": [expense["_id"] for expense in after_expenses]}},
+            {"$inc": {"remaining_amount_till_now": -(total_amount)}}
         )
 
         return ExpenseModel(**expense_dict)
@@ -196,6 +210,10 @@ class ExpenseService:
         )
         if not expense:
             return None
+    
+        after_expenses = await self.collection.find(
+            {"bank": ObjectId(expense['bank']), "user_id": ObjectId(user_id), "created_at": {"$gt": expense['created_at']}}
+        ).to_list(length=None)
 
         # Create new entries
         new_entries = []
@@ -232,6 +250,10 @@ class ExpenseService:
             await self.banks_collection.update_one(
                 {"_id": ObjectId(expense.get("bank"))},
                 {"$inc": {"current_balance": -total_added, "total_disbursed_till_now": total_added}},
+            )
+            await self.collection.update_many(
+                {"_id": {"$in": [expense["_id"] for expense in after_expenses]}},
+                {"$inc": {"remaining_amount_till_now": -(total_added)}}
             )
 
             result["_id"] = str(result["_id"])
@@ -285,6 +307,9 @@ class ExpenseService:
         expense = await self.collection.find_one(
             {"_id": ObjectId(expense_id), "user_id": ObjectId(user_id)}
         )
+        after_expenses = await self.collection.find(
+            {"bank": ObjectId(expense['bank']), "user_id": ObjectId(user_id), "created_at": {"$gt": expense['created_at']}}
+        ).to_list(length=None)
         if not expense:
             return False
 
@@ -323,6 +348,10 @@ class ExpenseService:
                 {"_id": ObjectId(expense.get("bank"))},
                 {"$inc": {"current_balance": amount, "total_disbursed_till_now": -amount}},
             )
+            await self.collection.update_many(
+                {"_id": {"$in": [expense["_id"] for expense in after_expenses]}},
+                {"$inc": {"remaining_amount_till_now": (entry_to_delete.get("amount", 0))}}
+            )
             return True
         return False
 
@@ -336,6 +365,10 @@ class ExpenseService:
         )
         if not expense:
             return False
+        
+        after_expenses = await self.collection.find(
+            {"bank": ObjectId(expense['bank']), "user_id": ObjectId(user_id), "created_at": {"$gt": expense['created_at']}}
+        ).to_list(length=None)
 
         # Delete expense
         result = await self.collection.delete_one(
@@ -354,6 +387,11 @@ class ExpenseService:
                     }
                 },
             )
+            if after_expenses:
+                await self.collection.update_many(
+                    {"_id": {"$in": [expense["_id"] for expense in after_expenses]}},
+                    {"$inc": {"remaining_amount_till_now": expense_total}}
+                )
             return True
         return False
 
