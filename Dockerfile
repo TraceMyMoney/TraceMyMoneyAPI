@@ -1,10 +1,20 @@
-FROM python:3.9.19-alpine
-
+FROM python:3.11-slim
 WORKDIR /app
 
-COPY requirements.txt requirements.txt
-RUN pip3 install -r requirements.txt
+# Install dependencies
+COPY pyproject.toml .
+COPY uv.lock .
 
-COPY . .
+RUN pip install uv
+ENV UV_SYSTEM_PYTHON=1
+RUN uv sync --no-cache
 
-CMD [ "python3", "-m" , "flask", "run", "--host=0.0.0.0"]
+# Copy application
+COPY ./app ./app
+COPY main.py main.py
+
+# Expose port
+EXPOSE 8000
+
+# Run the application
+CMD ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
