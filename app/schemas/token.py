@@ -6,6 +6,7 @@ class Token(BaseModel):
     """JWT token response schema - matches Flask response format."""
 
     token: str
+    refresh_token: str
     status_code: int = 201
 
 
@@ -31,3 +32,7 @@ class LoginRequest(BaseModel):
             }
         }
     }
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str

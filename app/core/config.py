@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str = environ.get("SECRET_KEY", "this_is_secret_key")
     ALGORITHM: str = environ.get("ALGORITHM", "HS256")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", 30)
+    REFRESH_TOKEN_EXPIRE_DAYS: int = environ.get("REFRESH_TOKEN_EXPIRE_DAYS", 7)
 
     # CORS
     BACKEND_CORS_ORIGINS: List[str] = environ.get(
