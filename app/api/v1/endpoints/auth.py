@@ -3,9 +3,12 @@ from fastapi import APIRouter, HTTPException, status
 from app.api.deps import UserServiceDep
 from app.schemas.token import Token, LoginRequest, RefreshRequest
 from app.schemas.user import UserCreate
-from app.core.security import create_access_token, create_refresh_token
+from app.core.security import (
+    create_access_token,
+    create_refresh_token,
+    decode_refresh_token,
+)
 from app.core.config import settings
-from jose import JWTError, jwt
 
 router = APIRouter()
 
@@ -55,21 +58,20 @@ async def register(user_data: UserCreate, user_service: UserServiceDep):
 
 
 @router.post("/refresh", response_model=Token)
-async def refresh_token(body: RefreshRequest):
+async def refresh_access_token(body: RefreshRequest):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid or expired refresh token",
     )
-    try:
-        payload = jwt.decode(body.refresh_token, settings.SECRET_KEY)
-        if payload.get("type") != "refresh":
-            raise credentials_exception
 
-        user_name, user_id = payload.get("user_name"), payload.get("user_id")
-        if user_id is None:
-            raise credentials_exception
+    refresh_token_value = body.refresh_token.replace("Bearer ", "").replace("bearer ", "").strip()
+    payload = decode_refresh_token(refresh_token_value)
+    if payload is None:
+        raise credentials_exception
 
-    except JWTError:
+    user_id = payload.get("user_id")
+    user_name = payload.get("user_name")
+    if user_id is None:
         raise credentials_exception
 
     new_payload = {"user_id": user_id, "user_name": user_name}
