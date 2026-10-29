@@ -18,18 +18,12 @@ class Settings(BaseSettings):
     DATABASE_URL: str = environ.get(
         "DATABASE_URL", "postgresql+asyncpg://smm:smm@localhost:5432/stalk_my_money"
     )
-    # Restricted role for the Text-to-SQL chat feature (Phase 4 guardrails):
-    # not the table owner, so RLS policies apply automatically, and it has
-    # no grants on `users` at all - see alembic/versions/deb615c9be22_*.py.
-    CHAT_DATABASE_URL: str = environ.get(
-        "CHAT_DATABASE_URL",
-        "postgresql+asyncpg://smm_chat_readonly:smm_chat_readonly@localhost:5432/stalk_my_money",
-    )
 
     # Security
     SECRET_KEY: str = environ.get("SECRET_KEY", "this_is_secret_key")
     ALGORITHM: str = environ.get("ALGORITHM", "HS256")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", 30)
+    REFRESH_TOKEN_EXPIRE_DAYS: int = environ.get("REFRESH_TOKEN_EXPIRE_DAYS", 7)
 
     # CORS
     BACKEND_CORS_ORIGINS: List[str] = environ.get(

@@ -38,3 +38,19 @@ def decode_access_token(token: str) -> Optional[dict]:
         return payload
     except JWTError:
         return None
+
+
+def create_refresh_token(data: dict) -> str:
+    """Create a long-lived JWT refresh token, distinguished by a type claim."""
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    to_encode.update({"exp": expire, "type": "refresh"})
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+
+def decode_refresh_token(token: str) -> Optional[dict]:
+    """Decode and verify a refresh token, rejecting access tokens passed in its place."""
+    payload = decode_access_token(token)
+    if payload is None or payload.get("type") != "refresh":
+        return None
+    return payload

@@ -6,7 +6,14 @@ class Token(BaseModel):
     """JWT token response schema - matches Flask response format."""
 
     token: str
+    refresh_token: Optional[str] = None
     status_code: int = 201
+
+
+class RefreshRequest(BaseModel):
+    """Refresh request schema."""
+
+    refresh_token: str
 
 
 class TokenPayload(BaseModel):

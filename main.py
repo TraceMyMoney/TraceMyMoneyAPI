@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.core.config import settings
-from app.db.postgres import engine, chat_engine
+from app.db.postgres import engine
 from app.api.v1.api import api_router
 
 
@@ -11,7 +11,6 @@ async def lifespan(app: FastAPI):
     """Lifespan events for startup and shutdown."""
     yield
     await engine.dispose()
-    await chat_engine.dispose()
 
 
 app = FastAPI(

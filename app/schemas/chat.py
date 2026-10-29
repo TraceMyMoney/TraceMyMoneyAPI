@@ -1,9 +1,20 @@
+from typing import Optional
 from pydantic import BaseModel
 
 
 class ChatRequest(BaseModel):
-    question: str
+    """A new question, OR a response to a pending confirmation (set
+    `confirm` instead of `question` in that case - the agent remembers
+    what it proposed via `thread_id`)."""
+
+    thread_id: str
+    question: Optional[str] = None
+    confirm: Optional[bool] = None
 
 
 class ChatResponse(BaseModel):
     answer: str
+    # True when `answer` is a proposed action awaiting the user's
+    # approval - the frontend should show Confirm/Cancel and send the
+    # decision back as {thread_id, confirm: true|false}.
+    pending_confirmation: bool = False
