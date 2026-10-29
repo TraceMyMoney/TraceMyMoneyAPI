@@ -2,109 +2,94 @@ from langchain_core.prompts import ChatPromptTemplate
 
 
 EXPENSE_SCHEMA = """
-    MongoDB Database: <>
+    PostgreSQL tables (read-only; queried as the restricted smm_chat_readonly
+    role, which can see ONLY these tables and nothing else - no `users`
+    table, no other user's rows):
 
-    Collection: expense
-    Each document = ONE DAY of expenses for a user.
+    banks
+      - id                UUID
+      - name              TEXT       (e.g. "SBI", "HDFC")
+      - current_balance   NUMERIC
 
-    ROOT LEVEL FIELDS (never prefix with "expenses."):
-      - _id                       : ObjectId
-      - user_id                   : ObjectId  ← ALWAYS filter by this
-      - day                       : string    ("Monday", "Tuesday" etc.)
-      - bank_name                 : string    ("SBI", "HDFC" etc.) ← ROOT ONLY
-      - expense_total             : number    (total ₹ spent that day) ← ROOT ONLY
-      - remaining_amount_till_now : number    (remaining ₹ balance)
-      - created_at                : ISODate   ← USE THIS FOR ALL DATE FILTERING
+    expenses
+      - id                         UUID
+      - bank_id                    UUID    FK -> banks.id
+      - bank_name                  TEXT    (denormalized copy of banks.name)
+      - day                        TEXT    ("Monday", "Tuesday", etc.)
+      - expense_total              NUMERIC (total spent that day, positive entries only)
+      - remaining_amount_till_now  NUMERIC
+      - created_at                 TIMESTAMPTZ   <- use this for ALL date filtering
 
-    expenses ARRAY (use $unwind to access individual items):
-      - expenses.amount       : number  (₹ amount of single item)
-      - expenses.description  : string  (what was bought e.g. "petrol", "pizza")
-      - expenses.ee_id        : number
-      - expenses.created_at   : ISODate ← DO NOT use this for date filtering
+    expense_entries
+      - id                   UUID
+      - expense_id           UUID    FK -> expenses.id
+      - amount               NUMERIC (positive = expense, negative = topup/refund)
+      - description          TEXT    (what was bought, e.g. "petrol", "pizza")
+      - expense_entry_type   TEXT    ('expense' or 'topup')
+      - created_at           TIMESTAMPTZ
+
+    expense_entry_tags
+      - id      UUID
+      - name    TEXT
+
+    expense_entry_tag_links  (many-to-many between expense_entries and expense_entry_tags)
+      - expense_entry_id   UUID    FK -> expense_entries.id
+      - tag_id             UUID    FK -> expense_entry_tags.id
 
     CRITICAL RULES:
-    1. bank_name      → ROOT field, NEVER write expenses.bank_name
-    2. expense_total  → ROOT field, NEVER write expenses.expense_total
-    3. Date filtering → ALWAYS use ROOT created_at, NEVER expenses.created_at
-    4. After $unwind  → bank_name is still "bank_name" NOT "expenses.bank_name"
-    5. user_id        → ALWAYS include in $match as string: "user_id": "<user_id>"
-    6. expenses.amount → DO NOT consider the negative amount, only consider the amount 
-
-    Example document:
-    {
-      "user_id": ObjectId("676d8ba24b77cfc402f66ed0"),
-      "day": "Tuesday",
-      "bank_name": "SBI",                ← ROOT
-      "expense_total": 500,              ← ROOT
-      "remaining_amount_till_now": 2000,
-      "created_at": ISODate("2026-03-24"),  ← ROOT - use for date filtering
-      "expenses": [
-        {
-          "amount": 300,                 ← INSIDE ARRAY
-          "description": "petrol",      ← INSIDE ARRAY
-          "created_at": ISODate("2026-03-24")  ← DO NOT use for date filter
-        },
-        {
-          "amount": 200,
-          "description": "pizza"
-        }
-      ]
-    }
+    1. Do NOT filter by user_id anywhere, and do NOT reference a `users` table or `user_id` column -
+       the database connection is already scoped to the current user via Row-Level Security.
+       Every row you can see already belongs to them.
+    2. Join expenses to expense_entries on expense_id when you need individual purchases
+       (description, per-item amount) rather than the daily total.
+    3. Only consider positive `amount` values as "expenses"; negative amounts are topups/refunds,
+       not spending, unless the question explicitly asks about refunds/topups.
+    4. Always write exactly one read-only SELECT statement. Never write INSERT/UPDATE/DELETE/DDL.
 """
 
 QUERY_GENERATION_PROMPT = ChatPromptTemplate.from_template(
     """
-      You are an expert MongoDB aggregation pipeline generator for a personal expense tracking app.
+      You are an expert PostgreSQL query generator for a personal expense tracking app.
 
       DATABASE SCHEMA: {schema}
 
-      USER ID: {user_id}
       TODAY'S DATE: {today}
+      START OF THIS MONTH: {month_start}
 
       USER QUESTION: {question}
 
       YOUR JOB:
-      Generate a MongoDB aggregation pipeline to answer the user's question.
+      Write exactly one read-only PostgreSQL SELECT statement that answers the question.
 
       STRICT RULES:
-      1. ALWAYS start pipeline with:
-        {{"$match": {{"user_id": "{user_id}"}}}}
-      2. ALL MongoDB operators MUST have $ prefix: $match, $group, $unwind, $sort, $limit, $project, $sum, $gte, $lte, $gt, $lt, $eq, $regex
-      3. For date ranges use:
-        {{"$gte": {{"$date": "YYYY-MM-DDT00:00:00Z"}}, "$lte": {{"$date": "YYYY-MM-DDT23:59:59Z"}}}}
-      4. For keyword search use:
-        {{"expenses.description": {{"$regex": "keyword", "$options": "i"}}}}
-      5. bank_name and expense_total are ROOT fields — NEVER prefix with "expenses."
-      6. Use $unwind ONLY when accessing individual expense items
-      7. Return ONLY raw JSON array — no markdown, no backticks, no explanation
-
-      DATE RULES:
-      - "today"       → created_at >= today 00:00:00
-      - "this week"   → created_at >= monday of current week
-      - "this month"  → created_at >= first day of current month
-      - "last N days" → created_at >= today minus N days
-      - "23 Mar 2026" → created_at gte 2026-03-23T00:00:00Z lte 2026-03-23T23:59:59Z
+      1. Output ONLY the raw SQL - no markdown fences, no explanation, no trailing semicolon required.
+      2. Exactly one SELECT statement. No INSERT/UPDATE/DELETE/DDL, no CTEs that write data,
+         no multiple statements separated by semicolons.
+      3. Never reference a `users` table or any `user_id` column - see schema rule 1.
+      4. Use ILIKE for case-insensitive keyword matching on description, e.g. description ILIKE '%petrol%'.
+      5. Use expenses.created_at for date filtering, not expense_entries.created_at.
+      6. Include a LIMIT (20 or fewer) unless the query is a single aggregate (COUNT/SUM) with no GROUP BY.
 
       EXAMPLES:
 
       Question: "how many times did I eat pizza?"
       Output:
-      [{{"$match":{{"user_id":"{user_id}"}}}},{{"$unwind":"$expenses"}},{{"$match":{{"expenses.description":{{"$regex":"pizza","$options":"i"}}}}}},{{"$count":"total_count"}}]
+      SELECT COUNT(*) AS total_count FROM expense_entries WHERE description ILIKE '%pizza%'
 
       Question: "total spent on petrol this month"
       Output:
-      [{{"$match":{{"user_id":"{user_id}","created_at":{{"$gte":{{"$date":"{month_start}"}}}}}}}},{{"$unwind":"$expenses"}},{{"$match":{{"expenses.description":{{"$regex":"petrol","$options":"i"}}}}}},{{"$group":{{"_id":null,"total":{{"$sum":"$expenses.amount"}},"count":{{"$sum":1}}}}}}]
+      SELECT SUM(ee.amount) AS total, COUNT(*) AS count FROM expense_entries ee JOIN expenses e ON e.id = ee.expense_id WHERE ee.description ILIKE '%petrol%' AND ee.amount > 0 AND e.created_at >= '{month_start}'
 
       Question: "most recent petrol expense"
       Output:
-      [{{"$match":{{"user_id":"{user_id}"}}}},{{"$unwind":"$expenses"}},{{"$match":{{"expenses.description":{{"$regex":"petrol","$options":"i"}}}}}},{{"$sort":{{"created_at":-1}}}},{{"$limit":1}},{{"$project":{{"date":"$created_at","description":"$expenses.description","amount":"$expenses.amount","bank_name":1,"_id":0}}}}]
+      SELECT e.created_at AS date, ee.description, ee.amount, e.bank_name FROM expense_entries ee JOIN expenses e ON e.id = ee.expense_id WHERE ee.description ILIKE '%petrol%' ORDER BY e.created_at DESC LIMIT 1
 
       Question: "expenses on 23 Mar 2026"
       Output:
-      [{{"$match":{{"user_id":"{user_id}","created_at":{{"$gte":{{"$date":"2026-03-23T00:00:00Z"}},"$lte":{{"$date":"2026-03-23T23:59:59Z"}}}}}}}},{{"$project":{{"date":"$created_at","day":1,"bank_name":1,"expense_total":1,"expenses":1,"_id":0}}}}]
+      SELECT e.created_at AS date, e.day, e.bank_name, e.expense_total, ee.description, ee.amount FROM expenses e JOIN expense_entries ee ON ee.expense_id = e.id WHERE e.created_at::date = '2026-03-23' LIMIT 20
 
-      Now generate the pipeline for the user's question above.
-      Output ONLY the JSON array.
+      Now write the SQL for the user's question above.
+      Output ONLY the SQL statement.
     """
 )
 

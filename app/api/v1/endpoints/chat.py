@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
-from app.api.deps import get_current_user, get_db
+from app.api.deps import get_current_user
+from app.db.postgres import chat_engine
 from app.schemas.chat import ChatRequest, ChatResponse
 from app.services.chat.chat_service import ChatService
 
@@ -10,10 +11,9 @@ router = APIRouter()
 async def chat(
     request: ChatRequest,
     current_user=Depends(get_current_user),
-    db=Depends(get_db),
 ):
     try:
-        service = ChatService(db=db)
+        service = ChatService(engine=chat_engine)
         answer = await service.ask(
             question=request.question,
             user_id=str(current_user.id),

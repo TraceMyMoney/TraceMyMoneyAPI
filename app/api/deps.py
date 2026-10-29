@@ -1,7 +1,7 @@
 from typing import Annotated, Optional
 from fastapi import Depends, HTTPException, status, Header
-from motor.motor_asyncio import AsyncIOMotorDatabase
-from app.db.session import get_database
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.db.postgres import get_postgres_session
 from app.core.security import decode_access_token
 from app.services.user_service import UserService
 from app.services.bank_service import BankService
@@ -11,32 +11,32 @@ from app.services.user_preference_service import UserPreferenceService
 from app.models.user import UserModel
 
 
-async def get_db() -> AsyncIOMotorDatabase:
-    """Dependency to get database instance."""
-    return get_database()
+async def get_db(session: AsyncSession = Depends(get_postgres_session)) -> AsyncSession:
+    """Dependency to get database session instance."""
+    return session
 
 
-async def get_user_service(db: AsyncIOMotorDatabase = Depends(get_db)) -> UserService:
+async def get_user_service(db: AsyncSession = Depends(get_db)) -> UserService:
     """Dependency to get user service instance."""
     return UserService(db)
 
 
-async def get_bank_service(db: AsyncIOMotorDatabase = Depends(get_db)) -> BankService:
+async def get_bank_service(db: AsyncSession = Depends(get_db)) -> BankService:
     """Dependency to get bank service instance."""
     return BankService(db)
 
 
-async def get_expense_service(db: AsyncIOMotorDatabase = Depends(get_db)) -> ExpenseService:
+async def get_expense_service(db: AsyncSession = Depends(get_db)) -> ExpenseService:
     """Dependency to get expense service instance."""
     return ExpenseService(db)
 
 
-async def get_entry_tag_service(db: AsyncIOMotorDatabase = Depends(get_db)) -> EntryTagService:
+async def get_entry_tag_service(db: AsyncSession = Depends(get_db)) -> EntryTagService:
     """Dependency to get entry tag service instance."""
     return EntryTagService(db)
 
 
-async def get_user_preference_service(db: AsyncIOMotorDatabase = Depends(get_db)) -> UserPreferenceService:
+async def get_user_preference_service(db: AsyncSession = Depends(get_db)) -> UserPreferenceService:
     """Dependency to get user preference service instance."""
     return UserPreferenceService(db)
 
@@ -72,7 +72,7 @@ async def get_current_user(
 
 # Type aliases for cleaner endpoint signatures
 CurrentUser = Annotated[UserModel, Depends(get_current_user)]
-DatabaseDep = Annotated[AsyncIOMotorDatabase, Depends(get_db)]
+DatabaseDep = Annotated[AsyncSession, Depends(get_db)]
 UserServiceDep = Annotated[UserService, Depends(get_user_service)]
 BankServiceDep = Annotated[BankService, Depends(get_bank_service)]
 ExpenseServiceDep = Annotated[ExpenseService, Depends(get_expense_service)]

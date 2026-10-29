@@ -12,7 +12,7 @@ class ExpenseEntryType(str, Enum):
 
 
 class ExpenseEntryModel(BaseModel):
-    """Embedded Expense Entry Document."""
+    """Expense entry DB model."""
 
     ee_id: str | int = Field(..., description="Unique entry ID")
     amount: float = Field(..., description="Amount (positive for expense, negative for topup)")

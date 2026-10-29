@@ -17,7 +17,7 @@ class ExpenseEntryCreate(BaseModel):
             "example": {
                 "amount": 50.00,
                 "description": "Grocery shopping",
-                "entry_tags": ["<bson_id>", "<bson_id>"],
+                "entry_tags": ["<tag_uuid>", "<tag_uuid>"],
                 "type": "expense",
             }
         }
@@ -35,7 +35,7 @@ class ExpenseEntryUpdate(BaseModel):
     model_config = {
         "json_schema_extra": {
             "example": {
-                "expense_id": "507f1f77bcf86cd799439011",
+                "expense_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
                 "entry_id": "ee_123456",
                 "updated_description": "Updated description",
                 "entry_tags": ["tag1", "tag2"],

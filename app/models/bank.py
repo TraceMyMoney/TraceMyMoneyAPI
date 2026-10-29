@@ -1,11 +1,11 @@
+import uuid
 from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, Field, field_validator
-from bson import ObjectId
 
 
 class BankModel(BaseModel):
-    """MongoDB Bank Document Model."""
+    """Bank DB model."""
 
     id: Optional[str] = Field(default=None, alias="_id")
     user_id: str
@@ -19,8 +19,8 @@ class BankModel(BaseModel):
     @field_validator("id", "user_id", mode="before")
     @classmethod
     def convert_objectid_to_str(cls, v):
-        """Convert ObjectId to string if needed."""
-        if isinstance(v, ObjectId):
+        """Convert UUID to string if needed."""
+        if isinstance(v, uuid.UUID):
             return str(v)
         return v
 

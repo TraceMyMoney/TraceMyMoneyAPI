@@ -1,125 +1,136 @@
+import uuid
 from typing import List, Optional
-from datetime import datetime
-from motor.motor_asyncio import AsyncIOMotorDatabase
-from bson import ObjectId
+from datetime import datetime, timezone
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.db.tables import banks
 from app.models.bank import BankModel
 from app.schemas.bank import BankCreate, BankUpdate
+from app.services.user_service import is_valid_id
 
 
 class BankService:
     """Service for bank-related business logic."""
 
-    def __init__(self, db: AsyncIOMotorDatabase):
-        self.collection = db.bank
-        self.expenses_collection = db.expenses
+    def __init__(self, db: AsyncSession):
+        self.db = db
 
     async def create_bank(self, user_id: str, bank_data: BankCreate) -> BankModel:
         """Create a new bank."""
-        bank_dict = bank_data.model_dump()
-        bank_dict["user_id"] = ObjectId(user_id)
+        bank_dict = bank_data.model_dump(exclude={"created_at"})
 
-        # Handle created_at if provided
         if bank_data.created_at:
             try:
-                from app.utils.date_utils import parse_date_string
+                from app.utils.date_utils import parse_date_string, to_utc_aware
 
-                bank_dict["created_at"] = parse_date_string(bank_data.created_at)
-            except:
-                bank_dict["created_at"] = datetime.utcnow()
+                created_at = to_utc_aware(parse_date_string(bank_data.created_at))
+            except Exception:
+                created_at = datetime.now(timezone.utc)
         else:
-            bank_dict["created_at"] = datetime.utcnow()
+            created_at = datetime.now(timezone.utc)
 
-        bank_dict["updated_at"] = datetime.utcnow()
+        new_id = uuid.uuid4()
+        values = {
+            "id": new_id,
+            "user_id": uuid.UUID(user_id),
+            **bank_dict,
+            "created_at": created_at,
+            "updated_at": datetime.now(timezone.utc),
+        }
+        await self.db.execute(banks.insert().values(**values))
+        await self.db.commit()
 
-        result = await self.collection.insert_one(bank_dict)
-        bank_dict["_id"] = str(result.inserted_id)
-        bank_dict["user_id"] = user_id
-
-        return BankModel(**bank_dict)
+        return BankModel(**{**values, "_id": str(new_id), "user_id": user_id})
 
     async def get_banks(
         self, user_id: str, bank_id: Optional[str] = None, name: Optional[str] = None
     ) -> List[BankModel]:
         """Get banks for a user with optional filters."""
-        query = {"user_id": ObjectId(user_id)}
+        query = select(banks).where(banks.c.user_id == uuid.UUID(user_id))
 
-        if bank_id and ObjectId.is_valid(bank_id):
-            query["_id"] = ObjectId(bank_id)
+        if bank_id and is_valid_id(bank_id):
+            query = query.where(banks.c.id == uuid.UUID(bank_id))
 
         if name:
-            query["name"] = name
+            query = query.where(banks.c.name == name)
 
-        cursor = self.collection.find(query)
-        banks = await cursor.to_list(length=None)
+        result = await self.db.execute(query)
+        rows = result.mappings().all()
 
-        # Convert ObjectIds to strings
-        for bank in banks:
-            bank["_id"] = str(bank["_id"])
-
-        return [BankModel(**bank) for bank in banks]
+        return [BankModel(**{**row, "_id": str(row["id"]), "user_id": str(row["user_id"])}) for row in rows]
 
     async def get_bank_by_id(self, user_id: str, bank_id: str) -> Optional[BankModel]:
         """Get a specific bank."""
-        if not ObjectId.is_valid(bank_id):
+        if not is_valid_id(bank_id):
             return None
 
-        bank = await self.collection.find_one({"_id": ObjectId(bank_id), "user_id": user_id})
-        if bank:
-            bank["_id"] = str(bank["_id"])
-            return BankModel(**bank)
+        result = await self.db.execute(
+            select(banks).where(banks.c.id == uuid.UUID(bank_id), banks.c.user_id == uuid.UUID(user_id))
+        )
+        row = result.mappings().first()
+        if row:
+            return BankModel(**{**row, "_id": str(row["id"]), "user_id": str(row["user_id"])})
         return None
 
     async def update_bank(self, user_id: str, bank_id: str, bank_data: BankUpdate) -> Optional[BankModel]:
         """Update a bank."""
-        if not ObjectId.is_valid(bank_id):
+        if not is_valid_id(bank_id):
             return None
 
         update_data = bank_data.model_dump(exclude_unset=True)
-        update_data["updated_at"] = datetime.utcnow()
+        update_data["updated_at"] = datetime.now(timezone.utc)
 
-        result = await self.collection.find_one_and_update(
-            {"_id": ObjectId(bank_id), "user_id": user_id}, {"$set": update_data}, return_document=True
+        result = await self.db.execute(
+            banks.update()
+            .where(banks.c.id == uuid.UUID(bank_id), banks.c.user_id == uuid.UUID(user_id))
+            .values(**update_data)
+            .returning(*banks.c)
         )
+        row = result.mappings().first()
+        await self.db.commit()
 
-        if result:
-            result["_id"] = str(result["_id"])
-            return BankModel(**result)
+        if row:
+            return BankModel(**{**row, "_id": str(row["id"]), "user_id": str(row["user_id"])})
         return None
 
     async def delete_bank(self, user_id: str, bank_id: str) -> bool:
-        """Delete a bank and all associated expenses."""
-        if not ObjectId.is_valid(bank_id):
+        """
+        Delete a bank and all associated expenses.
+
+        Expense deletion is now handled by `ON DELETE CASCADE` on
+        expenses.bank_id (see alembic/versions/330acedcd320_initial_schema.py),
+        fixing the Mongo-era bug where BankService deleted from the wrong
+        collection (`db.expenses`) and orphaned expenses (PLAN.md bug #2).
+        """
+        if not is_valid_id(bank_id):
             return False
 
-        # First check if bank exists
-        bank = await self.collection.find_one({"_id": ObjectId(bank_id), "user_id": ObjectId(user_id)})
-        if not bank:
-            return False
-
-        # Delete all expenses associated with this bank
-        await self.expenses_collection.delete_many({"bank_id": ObjectId(bank_id), "user_id": ObjectId(user_id)})
-
-        # Delete the bank
-        result = await self.collection.delete_one({"_id": ObjectId(bank_id), "user_id": ObjectId(user_id)})
-        return result.deleted_count > 0
+        result = await self.db.execute(
+            banks.delete().where(banks.c.id == uuid.UUID(bank_id), banks.c.user_id == uuid.UUID(user_id))
+        )
+        await self.db.commit()
+        return result.rowcount > 0
 
     async def update_bank_balance(
         self, user_id: str, bank_id: str, amount_change: float, disbursed_change: float
     ) -> Optional[BankModel]:
         """Update bank balance and total disbursed."""
-        if not ObjectId.is_valid(bank_id):
+        if not is_valid_id(bank_id):
             return None
 
-        result = await self.collection.find_one_and_update(
-            {"_id": ObjectId(bank_id), "user_id": user_id},
-            {
-                "$inc": {"current_balance": amount_change, "total_disbursed_till_now": disbursed_change},
-                "$set": {"updated_at": datetime.utcnow()},
-            },
-            return_document=True,
+        result = await self.db.execute(
+            banks.update()
+            .where(banks.c.id == uuid.UUID(bank_id), banks.c.user_id == uuid.UUID(user_id))
+            .values(
+                current_balance=banks.c.current_balance + amount_change,
+                total_disbursed_till_now=banks.c.total_disbursed_till_now + disbursed_change,
+                updated_at=datetime.now(timezone.utc),
+            )
+            .returning(*banks.c)
         )
+        row = result.mappings().first()
+        await self.db.commit()
 
-        if result:
-            result["_id"] = str(result["_id"])
-            return BankModel(**result)
+        if row:
+            return BankModel(**{**row, "_id": str(row["id"]), "user_id": str(row["user_id"])})
         return None

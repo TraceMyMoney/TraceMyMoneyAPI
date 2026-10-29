@@ -10,9 +10,21 @@ class Settings(BaseSettings):
     VERSION: str = environ.get("VERSION", "1.0.0")
     DEBUG: bool = environ.get("DEBUG", False)
 
-    # MongoDB
+    # MongoDB (current backend; being migrated to PostgreSQL per PLAN.md)
     MONGODB_URL: str = environ.get("MONGODB_URL", "mongodb://admin:jKFLXJCoGgsVCoiO@localhost:27017/")
     MONGODB_DB_NAME: str = environ.get("MONGODB_DB_NAME", "trackmoney_api")
+
+    # PostgreSQL (migration target; see PLAN.md)
+    DATABASE_URL: str = environ.get(
+        "DATABASE_URL", "postgresql+asyncpg://smm:smm@localhost:5432/stalk_my_money"
+    )
+    # Restricted role for the Text-to-SQL chat feature (Phase 4 guardrails):
+    # not the table owner, so RLS policies apply automatically, and it has
+    # no grants on `users` at all - see alembic/versions/deb615c9be22_*.py.
+    CHAT_DATABASE_URL: str = environ.get(
+        "CHAT_DATABASE_URL",
+        "postgresql+asyncpg://smm_chat_readonly:smm_chat_readonly@localhost:5432/stalk_my_money",
+    )
 
     # Security
     SECRET_KEY: str = environ.get("SECRET_KEY", "this_is_secret_key")
@@ -34,6 +46,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
+        extra = "ignore"
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

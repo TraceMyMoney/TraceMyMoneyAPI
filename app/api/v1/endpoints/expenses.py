@@ -113,7 +113,7 @@ async def update_expense_entry(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Please provide expense_id and entry_id"
         )
 
-    if not entry_data.updated_description and not entry_data.selected_tags:
+    if not entry_data.updated_description and not entry_data.entry_tags:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Please provide the tags or description"
         )

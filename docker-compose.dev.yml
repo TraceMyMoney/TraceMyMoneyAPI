@@ -1,0 +1,25 @@
+# Local-only PostgreSQL for the MongoDB -> PostgreSQL migration (PLAN.md).
+# Not used by CI/CD (see docker-compose.yml + .github/workflows/deploy_on_ec2.yml).
+#
+# Usage:
+#   docker compose -f docker-compose.dev.yml up -d
+#   DATABASE_URL=postgresql+asyncpg://smm:smm@localhost:5432/stalk_my_money
+
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: smm_postgres_dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: smm
+      POSTGRES_PASSWORD: smm
+      POSTGRES_DB: stalk_my_money
+    ports:
+      - "5432:5432"
+    volumes:
+      - smm_postgres_dev_data:/var/lib/postgresql/data
+
+volumes:
+  smm_postgres_dev_data:
