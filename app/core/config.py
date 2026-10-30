@@ -37,6 +37,21 @@ class Settings(BaseSettings):
     GROQ_API_KEY: str = environ.get("GROQ_API_KEY", "test_api_key")
     GROQ_MODEL_NAME: str = environ.get("GROQ_MODEL_NAME", "test_model_name")
 
+    # Optional: other chat-LLM providers an admin can switch to from the
+    # admin dashboard (see app/core/llm.py). Credentials stay in .env, not
+    # the DB - the DB only ever stores *which* provider/model is active,
+    # never a secret. A provider with no key set here simply can't be
+    # selected (see AppSettingsService.get_ai_config's validation).
+    OPENAI_API_KEY: str = environ.get("OPENAI_API_KEY", "")
+    ANTHROPIC_API_KEY: str = environ.get("ANTHROPIC_API_KEY", "")
+    OPENROUTER_API_KEY: str = environ.get("OPENROUTER_API_KEY", "")
+
+    # Optional: TypeSafe AI's Jev decision model (see app/core/jev.py). Left
+    # unset, every Jev-dependent feature (tag suggestion, chat tool-subset
+    # routing, write-action risk flagging, fast-path commands) silently
+    # no-ops - nothing in the app hard-depends on this being configured.
+    TYPESAFE_API_KEY: str = environ.get("TYPESAFE_API_KEY", "")
+
     class Config:
         env_file = ".env"
         case_sensitive = True

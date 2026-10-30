@@ -1,5 +1,5 @@
 import uuid
-from typing import Optional
+from typing import List, Optional
 from datetime import datetime, timezone
 from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -95,6 +95,52 @@ class UserService:
 
         if row:
             return UserModel(**{**row, "_id": str(row["id"])})
+        return None
+
+    async def list_all_users(self) -> List[dict]:
+        """List every user - admin dashboard only (see
+        app/api/v1/endpoints/admin.py). Returns raw rows, not UserModel -
+        some legacy/migrated accounts (e.g. a 3-char username) don't meet
+        UserModel's current validators, which would otherwise make the
+        whole listing 500 just because one old row fails validation on
+        construction; the admin schema (AdminUserItem) has no such
+        constraint."""
+        result = await self.db.execute(select(users).order_by(users.c.created_at.desc()))
+        rows = result.mappings().all()
+        return [{**row, "id": str(row["id"])} for row in rows]
+
+    async def set_chatbot_enabled(self, user_id: str, enabled: bool) -> Optional[dict]:
+        """Grant/revoke one user's access to the AI chatbot - admin-only.
+        Returns a raw row for the same reason as list_all_users above."""
+        return await self._update_flag(user_id, chatbot_enabled=enabled)
+
+    async def set_is_admin(self, user_id: str, is_admin: bool) -> Optional[dict]:
+        """Grant/revoke admin access - admin-only. Deliberately doesn't stop
+        an admin from revoking their own access (no extra special-casing);
+        if that locks everyone out, it's recoverable directly in the DB,
+        same as any other misconfiguration."""
+        return await self._update_flag(user_id, is_admin=is_admin)
+
+    async def set_is_disabled(self, user_id: str, is_disabled: bool) -> Optional[dict]:
+        """Lock/unlock a user's account entirely - admin-only. Enforced on
+        every authenticated request (app/api/deps.get_current_user), not
+        just login, so disabling takes effect immediately even for an
+        already-logged-in session."""
+        return await self._update_flag(user_id, is_disabled=is_disabled)
+
+    async def _update_flag(self, user_id: str, **values) -> Optional[dict]:
+        if not is_valid_id(user_id):
+            return None
+        result = await self.db.execute(
+            users.update()
+            .where(users.c.id == uuid.UUID(user_id))
+            .values(**values, updated_at=datetime.now(timezone.utc))
+            .returning(*users.c)
+        )
+        row = result.mappings().first()
+        await self.db.commit()
+        if row:
+            return {**row, "id": str(row["id"])}
         return None
 
     async def authenticate_user(self, username: str, password: str) -> Optional[UserModel]:

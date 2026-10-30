@@ -19,10 +19,18 @@ async def login(credentials: LoginRequest, user_service: UserServiceDep):
 
     if not user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid username or password")
+    if user.is_disabled:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This account has been disabled")
 
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"user_id": user.id, "user_name": user.username}, expires_delta=access_token_expires
+        data={
+            "user_id": user.id,
+            "user_name": user.username,
+            "is_admin": user.is_admin,
+            "chatbot_enabled": user.chatbot_enabled,
+        },
+        expires_delta=access_token_expires,
     )
     refresh_token = create_refresh_token(data={"user_id": user.id, "user_name": user.username})
 
@@ -49,10 +57,18 @@ async def refresh(request: RefreshRequest, user_service: UserServiceDep):
     user = await user_service.get_user_by_id(user_id)
     if not user:
         raise credentials_exception
+    if user.is_disabled:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This account has been disabled")
 
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"user_id": user.id, "user_name": user.username}, expires_delta=access_token_expires
+        data={
+            "user_id": user.id,
+            "user_name": user.username,
+            "is_admin": user.is_admin,
+            "chatbot_enabled": user.chatbot_enabled,
+        },
+        expires_delta=access_token_expires,
     )
     new_refresh_token = create_refresh_token(data={"user_id": user.id, "user_name": user.username})
 

@@ -66,12 +66,27 @@ async def get_current_user(
     user = await user_service.get_user_by_id(user_id)
     if user is None:
         raise credentials_exception
+    if user.is_disabled:
+        # Checked on every request (not just login) so an admin disabling a
+        # user mid-session revokes access immediately, not just on their
+        # next login - an already-issued JWT would otherwise keep working
+        # until it expires.
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This account has been disabled")
 
     return user
 
 
+async def get_current_admin_user(current_user: UserModel = Depends(get_current_user)) -> UserModel:
+    """Same as get_current_user, but 403s anyone who isn't an admin - for
+    admin-only endpoints like the user-management dashboard."""
+    if not current_user.is_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+    return current_user
+
+
 # Type aliases for cleaner endpoint signatures
 CurrentUser = Annotated[UserModel, Depends(get_current_user)]
+AdminUser = Annotated[UserModel, Depends(get_current_admin_user)]
 DatabaseDep = Annotated[AsyncSession, Depends(get_db)]
 UserServiceDep = Annotated[UserService, Depends(get_user_service)]
 BankServiceDep = Annotated[BankService, Depends(get_bank_service)]

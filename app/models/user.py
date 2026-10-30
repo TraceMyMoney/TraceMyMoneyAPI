@@ -12,6 +12,9 @@ class UserModel(BaseModel):
     email: str
     password: str
     is_subscribed_to_emails: bool = True
+    is_admin: bool = False
+    chatbot_enabled: bool = False
+    is_disabled: bool = False
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

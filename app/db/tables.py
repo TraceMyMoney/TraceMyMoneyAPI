@@ -21,7 +21,7 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 metadata = MetaData()
 
@@ -38,6 +38,9 @@ users = Table(
     Column("email", Text, nullable=False, unique=True),
     Column("password", Text, nullable=False),
     Column("is_subscribed_to_emails", Boolean, nullable=False, server_default="true"),
+    Column("is_admin", Boolean, nullable=False, server_default="false"),
+    Column("chatbot_enabled", Boolean, nullable=False, server_default="false"),
+    Column("is_disabled", Boolean, nullable=False, server_default="false"),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
 )
@@ -123,6 +126,20 @@ user_preferences = Table(
     Column("banks_display_order", ARRAY(UUID(as_uuid=True)), nullable=False, server_default="{}"),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+)
+
+# Generic admin-editable key/value settings store (active LLM provider/
+# model, feature flags, etc.) - see app/services/app_settings_service.py.
+# A handful of named keys, not a per-row-per-setting table, since each
+# setting is really a small JSON object (e.g. ai_config bundles provider +
+# model + generation params together) read/written as a unit.
+app_settings = Table(
+    "app_settings",
+    metadata,
+    Column("key", Text, primary_key=True),
+    Column("value", JSONB, nullable=False),
+    Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column("updated_by", UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
 )
 
 _migration_id_map = Table(

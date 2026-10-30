@@ -33,6 +33,25 @@ class ExpenseService:
                 [{"expense_entry_id": entry_pk, "tag_id": tid} for tid in tag_uuids],
             )
 
+    async def find_expense_id_for_day(
+        self, user_id: str, bank_id: str, date_str: Optional[str] = None
+    ) -> Optional[str]:
+        """Look up the existing expenses row (if any) for this bank+day, so
+        callers can append to it via add_expense_entries instead of hitting
+        create_expense's one-row-per-bank-per-day guard. date_str uses the
+        same format as ExpenseCreate.created_at; omit it for today."""
+        uid = uuid.UUID(user_id)
+        bid = uuid.UUID(bank_id)
+        created_at = to_utc_aware(parse_date_string(date_str)) if date_str else datetime.now(timezone.utc)
+        row = (
+            await self.db.execute(
+                select(expenses.c.id).where(
+                    expenses.c.bank_id == bid, expenses.c.user_id == uid, expenses.c.created_at == created_at
+                )
+            )
+        ).first()
+        return str(row.id) if row else None
+
     async def create_expense(self, user_id: str, expense_data: ExpenseCreate) -> ExpenseModel:
         """Create a new expense with entries."""
         uid = uuid.UUID(user_id)
@@ -210,78 +229,116 @@ class ExpenseService:
         # users' expenses too. See PLAN.md.)
         entry_filter = combiner(*other_conditions) if other_conditions else true()
 
-        stmt = (
-            select(
-                e.c.id.label("expense_id"),
-                e.c.user_id.label("expense_user_id"),
-                e.c.bank_name,
-                e.c.day,
-                e.c.remaining_amount_till_now,
-                e.c.created_at.label("expense_created_at"),
-                ee.c.id.label("entry_pk"),
-                ee.c.ee_id,
-                ee.c.amount,
-                ee.c.description,
-                ee.c.expense_entry_type,
-                ee.c.created_at.label("entry_created_at"),
-            )
+        # Pagination and totals are computed in SQL against just the matching
+        # expense ids, instead of pulling every matching expense+entry row
+        # into Python on every request (that previously meant a full
+        # join+load of a user's entire expense history just to show 5 rows -
+        # the dominant cost on initial page load for accounts with real
+        # history).
+        id_stmt = (
+            select(e.c.id, e.c.created_at)
+            .distinct()
             .select_from(e.join(ee, ee.c.expense_id == e.c.id))
             .where(e.c.user_id == uid, entry_filter)
-            .order_by(e.c.created_at.desc(), ee.c.position.asc())
+            .order_by(e.c.created_at.desc())
         )
 
-        rows = (await self.db.execute(stmt)).mappings().all()
-
-        entry_pks = [r["entry_pk"] for r in rows]
-        tag_map: dict = {}
-        if entry_pks:
-            link_rows = (
-                await self.db.execute(
-                    select(links.c.expense_entry_id, links.c.tag_id).where(links.c.expense_entry_id.in_(entry_pks))
-                )
-            ).all()
-            for link in link_rows:
-                tag_map.setdefault(link.expense_entry_id, []).append(str(link.tag_id))
-
-        grouped: dict = {}
-        for r in rows:
-            eid = r["expense_id"]
-            if eid not in grouped:
-                grouped[eid] = {
-                    "_id": str(eid),
-                    "id": str(eid),
-                    "user_id": str(r["expense_user_id"]),
-                    "bank_name": r["bank_name"],
-                    "day": r["day"],
-                    "remaining_amount_till_now": float(r["remaining_amount_till_now"]),
-                    "created_at": r["expense_created_at"],
-                    "expense_total": 0.0,
-                    "topup_expense_total": 0.0,
-                    "expenses": [],
-                }
-            amount = float(r["amount"])
-            if amount > 0:
-                grouped[eid]["expense_total"] += amount
-            else:
-                grouped[eid]["topup_expense_total"] += amount
-            grouped[eid]["expenses"].append(
-                {
-                    "ee_id": r["ee_id"],
-                    "amount": amount,
-                    "description": r["description"],
-                    "entry_tags": tag_map.get(r["entry_pk"], []),
-                    "expense_entry_type": r["expense_entry_type"],
-                    "created_at": r["entry_created_at"],
-                }
-            )
-
-        all_expenses = list(grouped.values())
-        total_count = len(all_expenses)
-        non_topup_total = sum(exp["expense_total"] for exp in all_expenses)
-        topup_total = sum(exp["topup_expense_total"] for exp in all_expenses)
+        total_count = (
+            await self.db.execute(select(func.count()).select_from(id_stmt.subquery()))
+        ).scalar_one()
 
         skip = (params.page_number - 1) * params.per_page
-        paginated_expenses = all_expenses[skip : skip + params.per_page]
+        page_ids = [
+            r.id
+            for r in (await self.db.execute(id_stmt.limit(params.per_page).offset(skip))).all()
+        ]
+
+        agg_row = (
+            await self.db.execute(
+                select(
+                    func.coalesce(func.sum(case((ee.c.amount > 0, ee.c.amount), else_=0)), 0).label(
+                        "non_topup_total"
+                    ),
+                    func.coalesce(func.sum(case((ee.c.amount < 0, ee.c.amount), else_=0)), 0).label(
+                        "topup_total"
+                    ),
+                )
+                .select_from(e.join(ee, ee.c.expense_id == e.c.id))
+                .where(e.c.user_id == uid, entry_filter)
+            )
+        ).one()
+        non_topup_total = float(agg_row.non_topup_total)
+        topup_total = float(agg_row.topup_total)
+
+        grouped: dict = {}
+        if page_ids:
+            stmt = (
+                select(
+                    e.c.id.label("expense_id"),
+                    e.c.user_id.label("expense_user_id"),
+                    e.c.bank_name,
+                    e.c.day,
+                    e.c.remaining_amount_till_now,
+                    e.c.created_at.label("expense_created_at"),
+                    ee.c.id.label("entry_pk"),
+                    ee.c.ee_id,
+                    ee.c.amount,
+                    ee.c.description,
+                    ee.c.expense_entry_type,
+                    ee.c.created_at.label("entry_created_at"),
+                )
+                .select_from(e.join(ee, ee.c.expense_id == e.c.id))
+                .where(e.c.id.in_(page_ids), entry_filter)
+                .order_by(e.c.created_at.desc(), ee.c.position.asc())
+            )
+
+            rows = (await self.db.execute(stmt)).mappings().all()
+
+            entry_pks = [r["entry_pk"] for r in rows]
+            tag_map: dict = {}
+            if entry_pks:
+                link_rows = (
+                    await self.db.execute(
+                        select(links.c.expense_entry_id, links.c.tag_id).where(
+                            links.c.expense_entry_id.in_(entry_pks)
+                        )
+                    )
+                ).all()
+                for link in link_rows:
+                    tag_map.setdefault(link.expense_entry_id, []).append(str(link.tag_id))
+
+            for r in rows:
+                eid = r["expense_id"]
+                if eid not in grouped:
+                    grouped[eid] = {
+                        "_id": str(eid),
+                        "id": str(eid),
+                        "user_id": str(r["expense_user_id"]),
+                        "bank_name": r["bank_name"],
+                        "day": r["day"],
+                        "remaining_amount_till_now": float(r["remaining_amount_till_now"]),
+                        "created_at": r["expense_created_at"],
+                        "expense_total": 0.0,
+                        "topup_expense_total": 0.0,
+                        "expenses": [],
+                    }
+                amount = float(r["amount"])
+                if amount > 0:
+                    grouped[eid]["expense_total"] += amount
+                else:
+                    grouped[eid]["topup_expense_total"] += amount
+                grouped[eid]["expenses"].append(
+                    {
+                        "ee_id": r["ee_id"],
+                        "amount": amount,
+                        "description": r["description"],
+                        "entry_tags": tag_map.get(r["entry_pk"], []),
+                        "expense_entry_type": r["expense_entry_type"],
+                        "created_at": r["entry_created_at"],
+                    }
+                )
+
+        paginated_expenses = list(grouped.values())
 
         return paginated_expenses, total_count, non_topup_total, topup_total
 

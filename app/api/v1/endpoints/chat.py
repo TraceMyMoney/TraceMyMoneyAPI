@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, status
 from app.api.deps import CurrentUser, DatabaseDep
 from app.schemas.chat import ChatRequest, ChatResponse
 from app.services.agent.agent_service import AgentChatService
@@ -12,6 +12,14 @@ async def chat(
     current_user: CurrentUser,
     db: DatabaseDep,
 ):
+    # Per-user entitlement, granted by an admin (see /admin/users) - not
+    # just hidden in the UI, the API itself is blocked for anyone without
+    # access, even if they call it directly.
+    if not current_user.chatbot_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="The AI chatbot isn't enabled for your account yet.",
+        )
     try:
         service = AgentChatService(db)
         user_id = str(current_user.id)
