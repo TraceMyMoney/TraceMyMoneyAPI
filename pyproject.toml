@@ -19,6 +19,7 @@ dependencies = [
     "pydantic-settings>=2.13.1",
     "pydantic[email]>=2.12.5",
     "python-jose>=3.5.0",
+    "reportlab>=5.1.0",
     "sqlalchemy[asyncio]>=2.0",
     "sqlglot>=30.25.0",
     "typesafe-sdk>=0.7.5",

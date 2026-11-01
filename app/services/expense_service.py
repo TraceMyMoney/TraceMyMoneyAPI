@@ -715,3 +715,117 @@ class ExpenseService:
                 "tag_name": tag_names.get(tag_id_str, "Unknown"),
             }
         return result
+
+    async def get_analytics_overview(
+        self,
+        user_id: str,
+        bank_ids: Optional[List[str]] = None,
+        tag_ids: Optional[List[str]] = None,
+        exclude_tag_ids: Optional[List[str]] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        keyword: Optional[str] = None,
+    ) -> dict:
+        """Aggregate spend by bank, by tag, and by calendar day (for the
+        Analytics charts). Only positive (debit) amounts count as spend -
+        top-ups are excluded, matching get_aggregated_data's convention.
+
+        `start_date`/`end_date` are "YYYY-MM-DD" strings, inclusive, compared
+        against the calendar date of `created_at` (not its time-of-day).
+        `tag_ids` (include) and `exclude_tag_ids` are applied as per-entry
+        EXISTS/NOT EXISTS checks against expense_entry_tag_links, so an entry
+        with multiple tags is never double-counted into a sum. `keyword` is
+        a case-insensitive substring match against each entry's description.
+        """
+        uid = uuid.UUID(user_id)
+        e, ee, links = expenses, expense_entries, expense_entry_tag_links
+        spend = func.sum(case((ee.c.amount > 0, ee.c.amount), else_=0))
+        day_col = func.date(e.c.created_at)
+
+        conditions = [e.c.user_id == uid]
+
+        valid_bank_ids = _valid_uuids(bank_ids) if bank_ids else []
+        if valid_bank_ids:
+            conditions.append(e.c.bank_id.in_(valid_bank_ids))
+
+        if start_date:
+            conditions.append(day_col >= datetime.strptime(start_date, "%Y-%m-%d").date())
+        if end_date:
+            conditions.append(day_col <= datetime.strptime(end_date, "%Y-%m-%d").date())
+
+        if keyword and keyword.strip():
+            conditions.append(ee.c.description.ilike(f"%{keyword.strip()}%"))
+
+        valid_include_ids = _valid_uuids(tag_ids) if tag_ids else []
+        if valid_include_ids:
+            conditions.append(
+                select(links.c.expense_entry_id)
+                .select_from(links)
+                .where(links.c.expense_entry_id == ee.c.id, links.c.tag_id.in_(valid_include_ids))
+                .correlate(ee)
+                .exists()
+            )
+
+        valid_exclude_ids = _valid_uuids(exclude_tag_ids) if exclude_tag_ids else []
+        if valid_exclude_ids:
+            conditions.append(
+                ~select(links.c.expense_entry_id)
+                .select_from(links)
+                .where(links.c.expense_entry_id == ee.c.id, links.c.tag_id.in_(valid_exclude_ids))
+                .correlate(ee)
+                .exists()
+            )
+
+        base_join = e.join(ee, ee.c.expense_id == e.c.id)
+
+        by_bank_stmt = (
+            select(e.c.bank_name, spend.label("total"))
+            .select_from(base_join)
+            .where(and_(*conditions))
+            .group_by(e.c.bank_name)
+            .order_by(spend.desc())
+        )
+        by_bank_rows = (await self.db.execute(by_bank_stmt)).all()
+
+        daily_stmt = (
+            select(day_col.label("day"), spend.label("total"))
+            .select_from(base_join)
+            .where(and_(*conditions))
+            .group_by(day_col)
+            .order_by(day_col)
+        )
+        daily_rows = (await self.db.execute(daily_stmt)).all()
+
+        by_tag_stmt = (
+            select(links.c.tag_id, spend.label("total"))
+            .select_from(base_join.join(links, links.c.expense_entry_id == ee.c.id))
+            .where(and_(*conditions))
+            .group_by(links.c.tag_id)
+            .order_by(spend.desc())
+        )
+        by_tag_rows = (await self.db.execute(by_tag_stmt)).all()
+
+        tag_names = {}
+        if by_tag_rows:
+            tag_id_list = [r.tag_id for r in by_tag_rows]
+            tag_rows = (
+                await self.db.execute(
+                    select(expense_entry_tags.c.id, expense_entry_tags.c.name).where(
+                        expense_entry_tags.c.id.in_(tag_id_list), expense_entry_tags.c.user_id == uid
+                    )
+                )
+            ).all()
+            tag_names = {t.id: t.name for t in tag_rows}
+
+        return {
+            "by_bank": [
+                {"bank_name": r.bank_name, "total": float(r.total)} for r in by_bank_rows
+            ],
+            "by_tag": [
+                {"tag_name": tag_names.get(r.tag_id, "Unknown"), "total": float(r.total)}
+                for r in by_tag_rows
+            ],
+            "daily": [
+                {"date": r.day.isoformat(), "total": float(r.total)} for r in daily_rows
+            ],
+        }

@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 _cached_llm = None
 _cached_key: Optional[tuple] = None
 _last_provider = "groq"
+_last_model: Optional[str] = None
 
 SUPPORTED_PROVIDERS = ("groq", "openai", "anthropic", "openrouter")
 
@@ -66,6 +67,12 @@ def current_provider() -> str:
     used only to label app/core/llm_status.py's error record; never part
     of request handling."""
     return _last_provider
+
+
+def current_model() -> Optional[str]:
+    """The model name the most recently built/cached client belongs to -
+    used only to label app/core/llm_metrics.py's usage records."""
+    return _last_model
 
 
 def build_llm(config: dict, api_key: str):
@@ -132,7 +139,7 @@ async def get_llm(db):
     only to read the admin-configured ai_config/provider keys - never
     raises, always returns a usable client (falling back to the env-based
     Groq default on any failure)."""
-    global _cached_llm, _cached_key, _last_provider
+    global _cached_llm, _cached_key, _last_provider, _last_model
 
     from app.services.app_settings_service import AppSettingsService
 
@@ -153,6 +160,7 @@ async def get_llm(db):
     try:
         llm = build_llm(config, api_key)
         _last_provider = config.get("provider") or "groq"
+        _last_model = config.get("model") or DEFAULT_AI_CONFIG["model"]
     except Exception:
         logger.exception(
             "Failed to build configured LLM (provider=%s) - falling back to default Groq client",
@@ -162,6 +170,7 @@ async def get_llm(db):
         llm = build_llm(DEFAULT_AI_CONFIG, default_key)
         key = (tuple(sorted(DEFAULT_AI_CONFIG.items())), default_key)
         _last_provider = "groq"
+        _last_model = DEFAULT_AI_CONFIG["model"]
 
     _cached_llm = llm
     _cached_key = key

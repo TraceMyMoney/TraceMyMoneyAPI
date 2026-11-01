@@ -57,6 +57,7 @@ _ALWAYS_INCLUDED_TOOLS = {
     "list_tags",
     "list_recent_expenses",
     "search_expenses",
+    "export_expenses",
     "spending_summary",
     "set_dark_mode",
     "set_privacy_mode",
@@ -93,6 +94,11 @@ You have tools covering nearly everything the app itself can do:
 - Look things up: list_banks, list_tags, list_recent_expenses,
   search_expenses (flexible filters: keyword/tag/bank/date range/amount),
   spending_summary.
+- Download/export: export_expenses - use this (not search_expenses)
+  whenever the user asks to download, export, or save their expenses as
+  a file. Same filters as search_expenses; defaults to PDF, can do CSV
+  too. It produces a real file the user's browser downloads - never
+  paste CSV/table text into the chat yourself as a substitute for this.
 - Expenses: create_expense (expense or topup), transfer_money (between
   two of the user's own banks), delete_expense (a whole day's expense),
   delete_expense_entry (just one entry within a day), edit_expense_entry
@@ -110,6 +116,13 @@ You have tools covering nearly everything the app itself can do:
 Rules:
 - Always use a tool to answer questions about the user's actual data -
   never guess or make up numbers, ids, or tag names.
+- When the user gives an amount, copy its digits EXACTLY as written -
+  never round, transpose, or "autocorrect" it, especially when several
+  items are listed in one message (e.g. "59rs => dahi and milk, 40rs =>
+  haar"). Re-read the exact number next to each item before proposing it.
+  If the user corrects an amount or any other detail you just proposed
+  (e.g. "it's 59, not 58"), the very next proposal MUST use their
+  corrected value exactly - never repeat the value they just corrected.
 - To act on a specific expense or entry (delete/edit it), call
   list_recent_expenses or search_expenses FIRST to find the real
   expense_id/entry_id - never invent one.
@@ -196,6 +209,31 @@ def _friendly_error(e: Exception) -> str:
     return "Sorry, something went wrong. Please try again in a moment."
 
 
+def _record_turn_token_usage(prior_message_count: int, result: dict, category: str | None) -> None:
+    """Sums usage_metadata off only the messages THIS turn added, not the
+    whole thread. The checkpointer makes graph.ainvoke() return the full
+    cumulative message history every time (verified directly - a second
+    turn on the same thread_id comes back with every earlier turn's
+    messages still in result["messages"]), so naively summing all of
+    them here would re-count every prior turn's tokens on every single
+    subsequent turn. Slicing off everything before `prior_message_count`
+    (the length captured right before this turn's ainvoke call) is what
+    isolates just the new messages."""
+    from app.core.llm import current_provider, current_model
+    from app.core.llm_metrics import record_request
+
+    new_messages = result.get("messages", [])[prior_message_count:]
+    input_tokens = 0
+    output_tokens = 0
+    for m in new_messages:
+        usage = getattr(m, "usage_metadata", None)
+        if usage:
+            input_tokens += usage.get("input_tokens", 0) or 0
+            output_tokens += usage.get("output_tokens", 0) or 0
+    if input_tokens or output_tokens:
+        record_request(current_provider(), current_model(), input_tokens, output_tokens, category)
+
+
 async def _extract_response(result: dict) -> dict:
     from app.core.llm_status import record_llm_success
 
@@ -238,7 +276,7 @@ class AgentChatService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def _build_graph(self, user_id: str, tool_category: str | None = None):
+    async def _build_graph(self, user_id: str, tool_category: str | None = None, export_box: dict | None = None):
         # Rebuilt per call so tools are always bound to *this* request's db
         # session - only the checkpointer (conversation memory) persists
         # across requests/calls. The LLM client itself is cached inside
@@ -246,7 +284,7 @@ class AgentChatService:
         # network client every turn - just picking up whatever's currently
         # cached there (or rebuilding it, the first call after an admin
         # changes the provider).
-        tools = build_tools(user_id, self.db)
+        tools = build_tools(user_id, self.db, export_box=export_box)
         if tool_category and tool_category in _TOOL_CATEGORIES:
             allowed = _ALWAYS_INCLUDED_TOOLS | _TOOL_CATEGORIES[tool_category]
             tools = [t for t in tools if t.name in allowed]
@@ -324,8 +362,15 @@ class AgentChatService:
         # see the full tool list that was present when that call paused,
         # or the resume could fail to find it.
         category = await classify_chat_category(question)
-        graph = await self._build_graph(user_id, tool_category=category)
+        export_box: dict = {}
+        graph = await self._build_graph(user_id, tool_category=category, export_box=export_box)
         config = {"configurable": {"thread_id": _scoped_thread_id(user_id, thread_id)}}
+        # Captured before invoking - see _record_turn_token_usage's
+        # docstring on why this is needed (the checkpointer makes
+        # ainvoke() return the FULL cumulative thread history, not just
+        # this turn's new messages).
+        prior_state = await graph.aget_state(config)
+        prior_message_count = len(prior_state.values.get("messages", [])) if prior_state.values else 0
         try:
             result = await graph.ainvoke(
                 {"messages": [("user", question)]}, config=config
@@ -333,11 +378,20 @@ class AgentChatService:
         except Exception as e:
             logger.exception("Agent chat ask() failed")
             return {"answer": _friendly_error(e), "pending_confirmation": False, "risk": None}
-        return await _extract_response(result)
+        _record_turn_token_usage(prior_message_count, result, category)
+        response = await _extract_response(result)
+        if export_box:
+            response["download"] = export_box
+        return response
 
     async def confirm(self, user_id: str, thread_id: str, approve: bool) -> dict:
+        # export_expenses never pauses for confirmation (it's read-only,
+        # see tools.py), so confirm() never needs an export_box - this
+        # resumes whatever write action was paused, not a fresh turn.
         graph = await self._build_graph(user_id)
         config = {"configurable": {"thread_id": _scoped_thread_id(user_id, thread_id)}}
+        prior_state = await graph.aget_state(config)
+        prior_message_count = len(prior_state.values.get("messages", [])) if prior_state.values else 0
         try:
             result = await graph.ainvoke(
                 Command(resume="approve" if approve else "reject"), config=config
@@ -345,4 +399,5 @@ class AgentChatService:
         except Exception as e:
             logger.exception("Agent chat confirm() failed")
             return {"answer": _friendly_error(e), "pending_confirmation": False, "risk": None}
+        _record_turn_token_usage(prior_message_count, result, category=None)
         return await _extract_response(result)

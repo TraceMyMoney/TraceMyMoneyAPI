@@ -101,3 +101,26 @@ class LlmErrorStatus(BaseModel):
 
 class LlmStatusResponse(BaseModel):
     last_error: Optional[LlmErrorStatus] = None
+
+
+class LlmMetricEntry(BaseModel):
+    at: str
+    provider: str
+    model: Optional[str] = None
+    input_tokens: int
+    output_tokens: int
+    total_tokens: int
+    category: Optional[str] = None
+
+
+class LlmMetricsTotals(BaseModel):
+    requests: int
+    input_tokens: int
+    output_tokens: int
+    total_tokens: int
+
+
+class LlmMetricsResponse(BaseModel):
+    recent: list[LlmMetricEntry]
+    today: LlmMetricsTotals
+    lifetime: LlmMetricsTotals

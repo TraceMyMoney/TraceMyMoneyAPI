@@ -9,6 +9,7 @@ from app.schemas.admin import (
     AiConfig,
     FeatureFlags,
     LlmStatusResponse,
+    LlmMetricsResponse,
     ProviderKeyStatus,
     ProviderKeysStatusResponse,
     SetProviderKey,
@@ -165,3 +166,14 @@ async def get_llm_status(admin_user: AdminUser):
     from app.core.llm_status import get_last_llm_error
 
     return LlmStatusResponse(last_error=get_last_llm_error())
+
+
+@router.get("/llm-metrics", response_model=LlmMetricsResponse)
+async def get_llm_metrics(admin_user: AdminUser):
+    """Admin-only: how many tokens chat requests are actually sending to
+    the LLM - recent individual requests plus today/lifetime totals. See
+    app/core/llm_metrics.py - process-local and reset on restart, an
+    operational view, not a billing system of record."""
+    from app.core.llm_metrics import get_metrics
+
+    return LlmMetricsResponse(**get_metrics())

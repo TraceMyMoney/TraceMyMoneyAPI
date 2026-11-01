@@ -1,8 +1,20 @@
-version: "3.8"
-
 services:
-  # TODO: remove this trackmoney_api from nginx container
+  # No postgres service here, and that's deliberate: production points
+  # DATABASE_URL (in ../env/.env.prod, loaded via env_file below) at the
+  # EC2-hosted Postgres instance directly - never at a container in this
+  # file. Local dev's own throwaway Postgres container lives entirely in
+  # docker-compose.dev.yml instead (see that file's header) - it is NOT
+  # picked up here since deploy_on_ec2.yml's `docker compose up -d` on the
+  # EC2 box runs with no -f flags at all, so only this file is ever read
+  # there. Do not merge the two by renaming dev.yml to
+  # docker-compose.override.yml - Compose auto-merges that name with no
+  # flags needed, which would start a local Postgres container and point
+  # production at it instead of the real EC2 instance.
   trackmoney_api:
+    # TODO: this is a stale image name - CI (.github/workflows/
+    # deploy_on_ec2.yml) actually builds and pushes
+    # parimalmahindrakar/track_money_api, not parimalmahindrakar/smm-image.
+    # Left as-is since fixing it is outside this refactor's scope.
     image: parimalmahindrakar/smm-image
     container_name: stalkmymoney_api
     restart: unless-stopped
@@ -12,7 +24,6 @@ services:
       - ../env/.env.prod
     networks:
       - app-network
-
     command: uv run uvicorn main:app --host 0.0.0.0 --port 5000 --reload
 
   rabbitmq:

@@ -16,7 +16,8 @@ pauses the graph and hands control back to AgentChatService, which
 surfaces the proposal to the frontend for the user to approve or reject -
 nothing is written to the database until that happens. Exceptions:
 - Read-only tools (list_banks, list_tags, list_recent_expenses,
-  search_expenses, spending_summary) run immediately, nothing to confirm.
+  search_expenses, export_expenses, spending_summary) run immediately,
+  nothing to confirm.
 - Display-preference tools (set_dark_mode, set_privacy_mode,
   set_page_size, reorder_banks) also run immediately without a pause -
   they're reversible UI settings, not financial data, so a confirmation
@@ -42,9 +43,19 @@ from app.schemas.user_preference import UserPreferenceUpdate
 from app.schemas.common import AdvancedSearchParams
 
 
-def build_tools(user_id: str, db: AsyncSession) -> list:
+def build_tools(user_id: str, db: AsyncSession, export_box: Optional[dict] = None) -> list:
     """Build a fresh set of tool instances bound to this one request's
-    user_id and DB session via closure. Call this once per chat turn."""
+    user_id and DB session via closure. Call this once per chat turn.
+
+    `export_box`: an optional dict the caller provides to receive a
+    generated export file, if export_expenses is called this turn (see
+    that tool below). It's a side-channel, not the tool's return value,
+    specifically so the LLM never has to see or repeat the file's
+    base64-encoded bytes in its own context - that would both burn a
+    huge number of tokens and risk the model paraphrasing/truncating
+    binary data. The tool returns a short confirmation string instead;
+    AgentChatService reads export_box after the graph run and attaches
+    its contents to the HTTP response directly."""
 
     bank_service = BankService(db)
     expense_service = ExpenseService(db)
@@ -252,6 +263,119 @@ def build_tools(user_id: str, db: AsyncSession) -> list:
         if shown == 0:
             return "No matching expenses found."
         return "\n".join(lines)
+
+    @tool
+    async def export_expenses(
+        keyword: Optional[str] = None,
+        tag_name: Optional[str] = None,
+        bank_name: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        min_amount: Optional[float] = None,
+        max_amount: Optional[float] = None,
+        top_n: Optional[int] = None,
+        format: str = "pdf",
+    ) -> str:
+        """Export the user's expenses as a real downloadable file - use
+        this whenever they ask to export/download/save their expenses,
+        as opposed to search_expenses which just answers in chat. Same
+        filters as search_expenses (all optional, combine with AND):
+        keyword in the description, tag name, bank account name, a date
+        range (start_date/end_date as DD/MM/YYYY), and/or min/max entry
+        amount. `top_n`: set this whenever the user asks for "top N" /
+        "last N" / "most recent N" expenses (e.g. "top 5 junkfood
+        expenses") - keeps only the N MOST RECENT entries (today first,
+        then yesterday, then earlier - by date, never by amount) AFTER
+        every other filter is applied. Without top_n, every matching
+        entry is included (this is the bug to avoid: a plain "download
+        my junkfood expenses" should NOT be quietly truncated, only an
+        explicit "top N" request should be).
+        `format` is "pdf" (default) or "csv". Read-only, no confirmation
+        needed - exports up to 100 matching expense groups (each of
+        which may have several entries, so often more than 100
+        individual line items) before any top_n cap is applied."""
+        if format not in ("pdf", "csv"):
+            return "format must be 'pdf' or 'csv'."
+
+        bank_id = None
+        if bank_name:
+            bank_id = await _resolve_bank_id(bank_name)
+            if bank_id is None:
+                return f"No bank account named '{bank_name}' found. Try list_banks."
+        tag_id = None
+        if tag_name:
+            tag_id = await _resolve_tag_id(tag_name)
+            if tag_id is None:
+                return f"No tag named '{tag_name}' found. Try list_tags."
+
+        advanced = bool(keyword or tag_id or start_date)
+        search_kwargs = {"advanced_search": advanced, "per_page": 100}
+        if advanced:
+            if keyword:
+                search_kwargs["search_by_keyword"] = keyword
+            if tag_id:
+                search_kwargs["search_by_tags"] = [tag_id]
+            if bank_id:
+                search_kwargs["search_by_bank_ids"] = [bank_id]
+            if start_date:
+                search_kwargs["search_by_daterange"] = {
+                    "start_date": start_date,
+                    "end_date": end_date,
+                }
+        elif bank_id:
+            search_kwargs["bank_id"] = bank_id
+
+        params = AdvancedSearchParams(**search_kwargs)
+        found_expenses, total, _, _ = await expense_service.get_expenses(user_id, params)
+
+        rows = []
+        for e in found_expenses:
+            for en in e["expenses"]:
+                amount = en["amount"]
+                if min_amount is not None and abs(amount) < min_amount:
+                    continue
+                if max_amount is not None and abs(amount) > max_amount:
+                    continue
+                rows.append(
+                    {
+                        "date": e["created_at"].strftime("%d/%m/%Y"),
+                        "bank": e["bank_name"],
+                        "description": en["description"] or "(no description)",
+                        "amount": amount,
+                    }
+                )
+        if not rows:
+            return "No matching expenses to export."
+
+        matched_count = len(rows)
+        if top_n is not None and top_n > 0:
+            from datetime import datetime as _datetime
+
+            # Most recent N, not highest-amount N - "top N" means recency
+            # to the user (today first, then yesterday, then earlier).
+            rows.sort(key=lambda r: _datetime.strptime(r["date"], "%d/%m/%Y"), reverse=True)
+            rows = rows[:top_n]
+
+        from app.services.agent.export import build_export
+        import base64
+
+        title_bits = [b for b in [tag_name, bank_name, keyword] if b]
+        title_bits_str = ", ".join(title_bits)
+        if top_n is not None:
+            title = f"Top {len(rows)} Expenses" + (f" - {title_bits_str}" if title_bits_str else "")
+        else:
+            title = ("Expenses - " + title_bits_str) if title_bits_str else "Expenses"
+        content, filename, mime_type = build_export(rows, title, format)
+
+        if export_box is not None:
+            export_box["filename"] = filename
+            export_box["mime_type"] = mime_type
+            export_box["content_b64"] = base64.b64encode(content).decode("ascii")
+
+        return (
+            f"Exported {len(rows)} of {matched_count} matching entries "
+            f"as {filename} - ready to download."
+        )
 
     @tool
     async def create_expense(
@@ -745,6 +869,7 @@ def build_tools(user_id: str, db: AsyncSession) -> list:
         list_tags,
         list_recent_expenses,
         search_expenses,
+        export_expenses,
         spending_summary,
         create_expense,
         transfer_money,
