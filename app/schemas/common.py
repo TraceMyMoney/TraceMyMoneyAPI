@@ -7,7 +7,7 @@ class PaginationParams(BaseModel):
     """Pagination parameters."""
 
     page_number: int = Field(default=1, ge=1)
-    per_page: int = Field(default=5, ge=1, le=100)
+    per_page: int = Field(default=5, ge=1, le=10000)
 
 
 class DateRange(BaseModel):
@@ -28,7 +28,7 @@ class AdvancedSearchParams(BaseModel):
     operator: str = Field(default="and", pattern="^(and|or)$")
     advanced_search: bool = False
     page_number: int = Field(default=1, ge=1)
-    per_page: int = Field(default=5, ge=1, le=100)
+    per_page: int = Field(default=5, ge=1, le=10000)
 
 
 class SuccessResponse(BaseModel):

@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException
+from typing import Optional
+from fastapi import APIRouter, HTTPException, Query
 from app.api.deps import AdminUser, UserServiceDep, DatabaseDep
 from app.schemas.admin import (
     AdminUserListResponse,
@@ -20,10 +21,23 @@ router = APIRouter()
 
 
 @router.get("/users", response_model=AdminUserListResponse)
-async def list_users(admin_user: AdminUser, user_service: UserServiceDep):
-    """Admin-only: every user in the system, for the admin dashboard."""
-    all_users = await user_service.list_all_users()
-    return AdminUserListResponse(users=[AdminUserItem(**u) for u in all_users])
+async def list_users(
+    admin_user: AdminUser,
+    user_service: UserServiceDep,
+    page_number: int = Query(1, ge=1),
+    per_page: int = Query(5, ge=1, le=100),
+    search: Optional[str] = Query(None),
+):
+    """Admin-only: paginated user list for the admin dashboard."""
+    page_users, total = await user_service.list_all_users(
+        page_number=page_number, per_page=per_page, search=search
+    )
+    return AdminUserListResponse(
+        users=[AdminUserItem(**u) for u in page_users],
+        total=total,
+        page_number=page_number,
+        per_page=per_page,
+    )
 
 
 @router.patch("/users/{user_id}/chatbot", response_model=AdminUserItem)

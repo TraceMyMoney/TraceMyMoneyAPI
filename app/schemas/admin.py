@@ -17,6 +17,9 @@ class AdminUserItem(BaseModel):
 
 class AdminUserListResponse(BaseModel):
     users: list[AdminUserItem]
+    total: int
+    page_number: int
+    per_page: int
 
 
 class AdminSetChatbotAccess(BaseModel):

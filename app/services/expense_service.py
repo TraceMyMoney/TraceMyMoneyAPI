@@ -74,7 +74,10 @@ class ExpenseService:
             )
         ).first()
         if existing:
-            raise ValueError("You cannot replicate the expense for the same day")
+            raise ValueError(
+                "An expense entry already exists for this bank on that date. "
+                "Open the existing row to add more entries to it."
+            )
 
         prev_expense = (
             await self.db.execute(
@@ -588,14 +591,14 @@ class ExpenseService:
         else:
             remaining_balance = float(expense_row["remaining_amount_till_now"]) + amount
             await self.db.execute(expense_entries.delete().where(expense_entries.c.id == entry_row["id"]))
-            # NOTE: expense_total is intentionally NOT decremented here - this
-            # matches the original Mongo behavior, which also never adjusted
-            # it on a partial entry delete (only full-expense delete reads
-            # expense_total). Preserved as-is per PLAN.md migration scope.
             await self.db.execute(
                 expenses.update()
                 .where(expenses.c.id == eid)
-                .values(remaining_amount_till_now=remaining_balance, updated_at=datetime.now(timezone.utc))
+                .values(
+                    expense_total=expenses.c.expense_total - amount,
+                    remaining_amount_till_now=remaining_balance,
+                    updated_at=datetime.now(timezone.utc),
+                )
             )
 
         await self.db.execute(

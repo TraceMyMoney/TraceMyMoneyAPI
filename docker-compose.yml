@@ -11,11 +11,8 @@ services:
   # flags needed, which would start a local Postgres container and point
   # production at it instead of the real EC2 instance.
   trackmoney_api:
-    # TODO: this is a stale image name - CI (.github/workflows/
-    # deploy_on_ec2.yml) actually builds and pushes
-    # parimalmahindrakar/track_money_api, not parimalmahindrakar/smm-image.
-    # Left as-is since fixing it is outside this refactor's scope.
-    image: parimalmahindrakar/smm-image
+    build: .
+    image: parimalmahindrakar/track_money_api:latest
     container_name: stalkmymoney_api
     restart: unless-stopped
     ports:

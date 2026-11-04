@@ -1,7 +1,7 @@
 import uuid
 from typing import List, Optional
 from datetime import datetime, timezone
-from sqlalchemy import select, or_
+from sqlalchemy import select, or_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.tables import users
 from app.models.user import UserModel
@@ -97,17 +97,35 @@ class UserService:
             return UserModel(**{**row, "_id": str(row["id"])})
         return None
 
-    async def list_all_users(self) -> List[dict]:
-        """List every user - admin dashboard only (see
+    async def list_all_users(
+        self, page_number: int = 1, per_page: int = 5, search: Optional[str] = None
+    ) -> tuple[List[dict], int]:
+        """Paginated user list - admin dashboard only (see
         app/api/v1/endpoints/admin.py). Returns raw rows, not UserModel -
         some legacy/migrated accounts (e.g. a 3-char username) don't meet
         UserModel's current validators, which would otherwise make the
         whole listing 500 just because one old row fails validation on
         construction; the admin schema (AdminUserItem) has no such
-        constraint."""
-        result = await self.db.execute(select(users).order_by(users.c.created_at.desc()))
+        constraint. Returns (rows, total_count) - total reflects the
+        search filter, not the whole table, so the UI can page through
+        just the matching set."""
+        stmt = select(users)
+        count_stmt = select(func.count()).select_from(users)
+
+        if search and search.strip():
+            like = f"%{search.strip()}%"
+            cond = or_(users.c.username.ilike(like), users.c.email.ilike(like))
+            stmt = stmt.where(cond)
+            count_stmt = count_stmt.where(cond)
+
+        total = (await self.db.execute(count_stmt)).scalar_one()
+
+        skip = max(0, (page_number - 1) * per_page)
+        stmt = stmt.order_by(users.c.created_at.desc()).limit(per_page).offset(skip)
+
+        result = await self.db.execute(stmt)
         rows = result.mappings().all()
-        return [{**row, "id": str(row["id"])} for row in rows]
+        return [{**row, "id": str(row["id"])} for row in rows], total
 
     async def set_chatbot_enabled(self, user_id: str, enabled: bool) -> Optional[dict]:
         """Grant/revoke one user's access to the AI chatbot - admin-only.
