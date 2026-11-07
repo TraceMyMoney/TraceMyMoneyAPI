@@ -44,6 +44,34 @@ async def get_graph_data(
     return {"aggregated_data": aggregated_data}
 
 
+@router.get("/analytics/overview")
+async def get_analytics_overview(
+    current_user: CurrentUser,
+    expense_service: ExpenseServiceDep,
+    bank_id: Optional[List[str]] = Query(None),
+    tag_id: Optional[List[str]] = Query(None),
+    exclude_tag_id: Optional[List[str]] = Query(None),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    keyword: Optional[str] = Query(None),
+):
+    """Spend aggregated by bank, by tag, and by calendar day - for the Analytics charts.
+
+    bank_id / tag_id / exclude_tag_id may each be repeated to filter by
+    several values; start_date/end_date are "YYYY-MM-DD", inclusive;
+    keyword is a case-insensitive substring match on entry descriptions.
+    """
+    return await expense_service.get_analytics_overview(
+        current_user.id,
+        bank_ids=bank_id,
+        tag_ids=tag_id,
+        exclude_tag_ids=exclude_tag_id,
+        start_date=start_date,
+        end_date=end_date,
+        keyword=keyword,
+    )
+
+
 @router.post("/create", status_code=201)
 async def create_expense(
     expense_data: ExpenseCreate, current_user: CurrentUser, expense_service: ExpenseServiceDep
@@ -113,7 +141,7 @@ async def update_expense_entry(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Please provide expense_id and entry_id"
         )
 
-    if not entry_data.updated_description and not entry_data.selected_tags:
+    if not entry_data.updated_description and not entry_data.entry_tags:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Please provide the tags or description"
         )

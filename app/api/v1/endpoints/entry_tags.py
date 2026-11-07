@@ -1,8 +1,19 @@
 from fastapi import APIRouter, HTTPException, status
+from pydantic import BaseModel
 from app.api.deps import CurrentUser, EntryTagServiceDep
 from app.schemas.entry_tag import EntryTagCreate, EntryTagResponse
+from app.services.jev_insights import suggest_tag
 
 router = APIRouter()
+
+
+class SuggestTagRequest(BaseModel):
+    description: str
+
+
+class SuggestTagResponse(BaseModel):
+    tag_name: str | None = None
+    confidence: float | None = None
 
 
 @router.get("/")
@@ -23,3 +34,18 @@ async def create_entry_tag(
         return {"success": "Tag created successfully", "tag_id": tag.id}
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.post("/suggest", response_model=SuggestTagResponse)
+async def suggest_entry_tag(
+    payload: SuggestTagRequest, current_user: CurrentUser, tag_service: EntryTagServiceDep
+):
+    """Suggest an existing tag for a new expense description, via Jev
+    (TypeSafe AI). Returns an empty body (both fields null) whenever Jev
+    isn't configured/available or no match was found - this is advisory
+    only, never required for adding an expense."""
+    tags = await tag_service.get_tags(current_user.id)
+    result = await suggest_tag(payload.description, [t.name for t in tags])
+    if result is None:
+        return SuggestTagResponse()
+    return SuggestTagResponse(**result)

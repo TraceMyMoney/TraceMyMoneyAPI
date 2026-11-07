@@ -1,8 +1,20 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 # Flask uses this format: "DD/MM/YYYY HH:MM"
 DATE_TIME_FORMAT = "%d/%m/%Y %H:%M"
+
+
+def to_utc_aware(dt: datetime) -> datetime:
+    """
+    Postgres TIMESTAMPTZ columns (via asyncpg) require timezone-aware
+    datetimes. parse_date_string/datetime.utcnow() produce naive ones;
+    treat those as UTC (matching their original intent under Mongo, which
+    stored naive UTC datetimes).
+    """
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
 
 
 def parse_date_string(date_str: str) -> datetime:

@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
-from app.api.deps import get_current_user, get_db
+from fastapi import APIRouter, HTTPException, status
+from app.api.deps import CurrentUser, DatabaseDep
 from app.schemas.chat import ChatRequest, ChatResponse
-from app.services.chat.chat_service import ChatService
+from app.services.agent.agent_service import AgentChatService
 
 router = APIRouter()
 
@@ -9,15 +9,30 @@ router = APIRouter()
 @router.post("/chat", response_model=ChatResponse)
 async def chat(
     request: ChatRequest,
-    current_user=Depends(get_current_user),
-    db=Depends(get_db),
+    current_user: CurrentUser,
+    db: DatabaseDep,
 ):
-    try:
-        service = ChatService(db=db)
-        answer = await service.ask(
-            question=request.question,
-            user_id=str(current_user.id),
+    # Per-user entitlement, granted by an admin (see /admin/users) - not
+    # just hidden in the UI, the API itself is blocked for anyone without
+    # access, even if they call it directly.
+    if not current_user.chatbot_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="The AI chatbot isn't enabled for your account yet.",
         )
-        return ChatResponse(answer=answer)
+    try:
+        service = AgentChatService(db)
+        user_id = str(current_user.id)
+
+        if request.confirm is not None:
+            result = await service.confirm(user_id, request.thread_id, request.confirm)
+        else:
+            if not request.question:
+                raise HTTPException(status_code=400, detail="question is required")
+            result = await service.ask(user_id, request.thread_id, request.question)
+
+        return ChatResponse(**result)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

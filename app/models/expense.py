@@ -1,12 +1,12 @@
+import uuid
 from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel, Field, field_validator
-from bson import ObjectId
 from app.models.expense_entry import ExpenseEntryModel
 
 
 class ExpenseModel(BaseModel):
-    """MongoDB Expense Document Model."""
+    """Expense DB model."""
 
     id: Optional[str] = Field(default=None, alias="_id")
     user_id: str
@@ -22,8 +22,8 @@ class ExpenseModel(BaseModel):
     @field_validator("id", "user_id", "bank", mode="before")
     @classmethod
     def convert_objectid_to_str(cls, v):
-        """Convert ObjectId to string if needed."""
-        if isinstance(v, ObjectId):
+        """Convert UUID to string if needed."""
+        if isinstance(v, uuid.UUID):
             return str(v)
         return v
 
@@ -38,7 +38,7 @@ class ExpenseModel(BaseModel):
         "populate_by_name": True,
         "json_schema_extra": {
             "example": {
-                "bank_id": "507f1f77bcf86cd799439011",
+                "bank_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
                 "bank_name": "Chase Checking",
                 "day": "Monday",
                 "expenses": [],

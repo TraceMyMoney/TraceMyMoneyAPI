@@ -74,26 +74,28 @@ jobs:
     if: github.ref_name == 'master'
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.5.3
         with:
           ssh-private-key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
 
+      - name: Copy source to EC2
+        run: |
+          rsync -avz --exclude '.git' --exclude '__pycache__' --exclude '*.pyc' \
+            -e "ssh -o StrictHostKeyChecking=no" \
+            . ubuntu@${{ secrets.EC2_HOST }}:~/TraceMyMoneyAPI/
+
       - name: Deploy to EC2
         run: |
-          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-          VERSION="${{ github.ref_name }}_${SHORT_SHA}"
-
           ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} << EOF
 
-            echo "Pulling latest production image..."
-            docker pull parimalmahindrakar/track_money_api:latest
-
-            echo "Stopping existing containers..."
+            echo "Building and starting containers..."
+            cd ~/TraceMyMoneyAPI
             docker compose down || true
-
-            echo "Starting updated containers..."
-            docker compose up -d
+            docker compose up --build -d
 
             echo "Deployment completed successfully!"
 

@@ -1,0 +1,40 @@
+# Local development only - a throwaway Postgres container, nothing else.
+# docker-compose.yml (production) never runs Postgres as a container at
+# all; its DATABASE_URL points straight at the EC2-hosted instance via
+# ../env/.env.prod. This is the local equivalent: only ever created when
+# you're running the API server on your own machine, never on EC2.
+#
+# NAMED .dev.yml, NOT .override.yml, and that's load-bearing. Compose
+# auto-merges a file named exactly docker-compose.override.yml with no -f
+# flags at all. deploy_on_ec2.yml deploys with a bare `docker compose up
+# -d` on the EC2 box, so if this were ever renamed to .override.yml, that
+# box would silently start a local Postgres container too and - worse -
+# nothing here overrides DATABASE_URL back, so production would still read
+# whatever ../env/.env.prod says; but the dangling unrouted container
+# would still be running on a box that was never supposed to have one.
+# Keep the .dev.yml name so a bare `docker compose up` on EC2 sees only
+# docker-compose.yml.
+#
+# Usage - run the API directly on your machine (CLAUDE.md's normal dev
+# flow), with just Postgres containerized:
+#   docker compose -f docker-compose.dev.yml up -d
+#   DATABASE_URL=postgresql+asyncpg://smm:smm@localhost:5432/stalk_my_money uv run uvicorn main:app --reload --port 8000
+# Stop it when you're done (or just leave it running - it's cheap):
+#   docker compose -f docker-compose.dev.yml down
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: smm_postgres_dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: smm
+      POSTGRES_PASSWORD: smm
+      POSTGRES_DB: stalk_my_money
+    ports:
+      - "5432:5432"
+    volumes:
+      - smm_postgres_dev_data:/var/lib/postgresql/data
+
+volumes:
+  smm_postgres_dev_data:

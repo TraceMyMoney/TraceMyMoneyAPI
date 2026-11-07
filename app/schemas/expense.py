@@ -1,5 +1,5 @@
+import uuid
 from typing import List, Optional
-from bson import ObjectId
 from datetime import datetime
 from pydantic import BaseModel, Field, field_serializer, field_validator
 from app.schemas.expense_entry import ExpenseEntryCreate, ExpenseEntryResponse
@@ -23,7 +23,7 @@ class ExpenseCreate(ExpenseBase):
     model_config = {
         "json_schema_extra": {
             "example": {
-                "bank_id": "507f1f77bcf86cd799439011",
+                "bank_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
                 "expenses": [
                     {
                         "amount": 50.00,
@@ -65,7 +65,7 @@ class ExpenseResponse(BaseModel):
     @field_validator("id", "user_id", mode="before")
     @classmethod
     def convert_objectid(cls, v):
-        if isinstance(v, ObjectId):
+        if isinstance(v, uuid.UUID):
             return str(v)
         return v
 
