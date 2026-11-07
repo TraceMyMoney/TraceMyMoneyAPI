@@ -1,19 +1,20 @@
 import uuid
-from typing import List, Optional, Tuple
 from datetime import datetime, timezone
-from sqlalchemy import select, and_, or_, true, false, case, func
+
+from sqlalchemy import and_, case, false, func, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.db.tables import expenses, expense_entries, expense_entry_tag_links, expense_entry_tags, banks
+
+from app.db.tables import banks, expense_entries, expense_entry_tag_links, expense_entry_tags, expenses
 from app.models.expense import ExpenseModel
 from app.models.expense_entry import ExpenseEntryModel
+from app.schemas.common import AdvancedSearchParams
 from app.schemas.expense import ExpenseCreate
 from app.schemas.expense_entry import ExpenseEntryCreate, ExpenseEntryUpdate
-from app.schemas.common import AdvancedSearchParams
-from app.utils.date_utils import parse_date_string, to_utc_aware
 from app.services.user_service import is_valid_id
+from app.utils.date_utils import parse_date_string, to_utc_aware
 
 
-def _valid_uuids(ids: List[str]) -> List[uuid.UUID]:
+def _valid_uuids(ids: list[str]) -> list[uuid.UUID]:
     return [uuid.UUID(i) for i in ids if is_valid_id(i)]
 
 
@@ -23,7 +24,7 @@ class ExpenseService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def _link_tags(self, entry_pk: uuid.UUID, entry_tag_ids: List[str]) -> None:
+    async def _link_tags(self, entry_pk: uuid.UUID, entry_tag_ids: list[str]) -> None:
         """Best-effort tag linking: silently skips IDs that aren't valid UUIDs
         (matches the Mongo-era behavior of never validating entry_tags)."""
         tag_uuids = _valid_uuids(entry_tag_ids)
@@ -33,9 +34,7 @@ class ExpenseService:
                 [{"expense_entry_id": entry_pk, "tag_id": tid} for tid in tag_uuids],
             )
 
-    async def find_expense_id_for_day(
-        self, user_id: str, bank_id: str, date_str: Optional[str] = None
-    ) -> Optional[str]:
+    async def find_expense_id_for_day(self, user_id: str, bank_id: str, date_str: str | None = None) -> str | None:
         """Look up the existing expenses row (if any) for this bank+day, so
         callers can append to it via add_expense_entries instead of hitting
         create_expense's one-row-per-bank-per-day guard. date_str uses the
@@ -101,7 +100,7 @@ class ExpenseService:
             ).all()
         ]
 
-        entries: List[ExpenseEntryModel] = []
+        entries: list[ExpenseEntryModel] = []
         total_amount = 0.0
         for entry_data in expense_data.expenses:
             ee_id = f"ee_{uuid.uuid4().hex[:12]}"
@@ -184,9 +183,7 @@ class ExpenseService:
             updated_at=now,
         )
 
-    async def get_expenses(
-        self, user_id: str, params: AdvancedSearchParams
-    ) -> Tuple[List[dict], int, float, float]:
+    async def get_expenses(self, user_id: str, params: AdvancedSearchParams) -> tuple[list[dict], int, float, float]:
         """
         Get expenses with advanced search and pagination.
         Returns: (expenses, total_count, non_topup_total, topup_total)
@@ -232,6 +229,20 @@ class ExpenseService:
         # users' expenses too. See PLAN.md.)
         entry_filter = combiner(*other_conditions) if other_conditions else true()
 
+        # Excluded tags are a "must not" rule, so they always apply on top of
+        # the and/or group instead of being combined into it: with
+        # operator=or, an entry carrying an excluded tag must still be hidden.
+        if params.exclude_tags:
+            exclude_uuids = _valid_uuids(params.exclude_tags)
+            if exclude_uuids:
+                entry_filter = and_(
+                    entry_filter,
+                    ~select(links.c.expense_entry_id)
+                    .where(links.c.expense_entry_id == ee.c.id, links.c.tag_id.in_(exclude_uuids))
+                    .correlate(ee)
+                    .exists(),
+                )
+
         # Pagination and totals are computed in SQL against just the matching
         # expense ids, instead of pulling every matching expense+entry row
         # into Python on every request (that previously meant a full
@@ -246,25 +257,16 @@ class ExpenseService:
             .order_by(e.c.created_at.desc())
         )
 
-        total_count = (
-            await self.db.execute(select(func.count()).select_from(id_stmt.subquery()))
-        ).scalar_one()
+        total_count = (await self.db.execute(select(func.count()).select_from(id_stmt.subquery()))).scalar_one()
 
         skip = (params.page_number - 1) * params.per_page
-        page_ids = [
-            r.id
-            for r in (await self.db.execute(id_stmt.limit(params.per_page).offset(skip))).all()
-        ]
+        page_ids = [r.id for r in (await self.db.execute(id_stmt.limit(params.per_page).offset(skip))).all()]
 
         agg_row = (
             await self.db.execute(
                 select(
-                    func.coalesce(func.sum(case((ee.c.amount > 0, ee.c.amount), else_=0)), 0).label(
-                        "non_topup_total"
-                    ),
-                    func.coalesce(func.sum(case((ee.c.amount < 0, ee.c.amount), else_=0)), 0).label(
-                        "topup_total"
-                    ),
+                    func.coalesce(func.sum(case((ee.c.amount > 0, ee.c.amount), else_=0)), 0).label("non_topup_total"),
+                    func.coalesce(func.sum(case((ee.c.amount < 0, ee.c.amount), else_=0)), 0).label("topup_total"),
                 )
                 .select_from(e.join(ee, ee.c.expense_id == e.c.id))
                 .where(e.c.user_id == uid, entry_filter)
@@ -302,9 +304,7 @@ class ExpenseService:
             if entry_pks:
                 link_rows = (
                     await self.db.execute(
-                        select(links.c.expense_entry_id, links.c.tag_id).where(
-                            links.c.expense_entry_id.in_(entry_pks)
-                        )
+                        select(links.c.expense_entry_id, links.c.tag_id).where(links.c.expense_entry_id.in_(entry_pks))
                     )
                 ).all()
                 for link in link_rows:
@@ -345,7 +345,7 @@ class ExpenseService:
 
         return paginated_expenses, total_count, non_topup_total, topup_total
 
-    async def get_expense_by_id(self, user_id: str, expense_id: str) -> Optional[ExpenseModel]:
+    async def get_expense_by_id(self, user_id: str, expense_id: str) -> ExpenseModel | None:
         """Get a single expense by ID."""
         if not is_valid_id(expense_id):
             return None
@@ -354,16 +354,24 @@ class ExpenseService:
         eid = uuid.UUID(expense_id)
 
         expense_row = (
-            await self.db.execute(select(expenses).where(expenses.c.id == eid, expenses.c.user_id == uid))
-        ).mappings().first()
+            (await self.db.execute(select(expenses).where(expenses.c.id == eid, expenses.c.user_id == uid)))
+            .mappings()
+            .first()
+        )
         if not expense_row:
             return None
 
         entry_rows = (
-            await self.db.execute(
-                select(expense_entries).where(expense_entries.c.expense_id == eid).order_by(expense_entries.c.position)
+            (
+                await self.db.execute(
+                    select(expense_entries)
+                    .where(expense_entries.c.expense_id == eid)
+                    .order_by(expense_entries.c.position)
+                )
             )
-        ).mappings().all()
+            .mappings()
+            .all()
+        )
 
         entry_pks = [r["id"] for r in entry_rows]
         tag_map: dict = {}
@@ -404,8 +412,8 @@ class ExpenseService:
         )
 
     async def add_expense_entries(
-        self, user_id: str, expense_id: str, entries: List[ExpenseEntryCreate]
-    ) -> Optional[dict]:
+        self, user_id: str, expense_id: str, entries: list[ExpenseEntryCreate]
+    ) -> dict | None:
         """Add new entries to an existing expense."""
         if not is_valid_id(expense_id):
             return None
@@ -414,8 +422,10 @@ class ExpenseService:
         eid = uuid.UUID(expense_id)
 
         expense_row = (
-            await self.db.execute(select(expenses).where(expenses.c.id == eid, expenses.c.user_id == uid))
-        ).mappings().first()
+            (await self.db.execute(select(expenses).where(expenses.c.id == eid, expenses.c.user_id == uid)))
+            .mappings()
+            .first()
+        )
         if not expense_row:
             return None
 
@@ -489,7 +499,7 @@ class ExpenseService:
         await self.db.commit()
         return {"id": str(eid)}
 
-    async def update_expense_entry(self, user_id: str, update_data: ExpenseEntryUpdate) -> Optional[dict]:
+    async def update_expense_entry(self, user_id: str, update_data: ExpenseEntryUpdate) -> dict | None:
         """Update a specific expense entry."""
         if not is_valid_id(update_data.expense_id):
             return None
@@ -552,16 +562,24 @@ class ExpenseService:
         eid = uuid.UUID(expense_id)
 
         expense_row = (
-            await self.db.execute(select(expenses).where(expenses.c.id == eid, expenses.c.user_id == uid))
-        ).mappings().first()
+            (await self.db.execute(select(expenses).where(expenses.c.id == eid, expenses.c.user_id == uid)))
+            .mappings()
+            .first()
+        )
         if not expense_row:
             return False
 
         entry_row = (
-            await self.db.execute(
-                select(expense_entries).where(expense_entries.c.expense_id == eid, expense_entries.c.ee_id == entry_id)
+            (
+                await self.db.execute(
+                    select(expense_entries).where(
+                        expense_entries.c.expense_id == eid, expense_entries.c.ee_id == entry_id
+                    )
+                )
             )
-        ).mappings().first()
+            .mappings()
+            .first()
+        )
         if not entry_row:
             return False
 
@@ -629,8 +647,10 @@ class ExpenseService:
         eid = uuid.UUID(expense_id)
 
         expense_row = (
-            await self.db.execute(select(expenses).where(expenses.c.id == eid, expenses.c.user_id == uid))
-        ).mappings().first()
+            (await self.db.execute(select(expenses).where(expenses.c.id == eid, expenses.c.user_id == uid)))
+            .mappings()
+            .first()
+        )
         if not expense_row:
             return False
 
@@ -671,7 +691,7 @@ class ExpenseService:
         await self.db.commit()
         return False
 
-    async def get_aggregated_data(self, user_id: str, bank_id: Optional[str] = None) -> dict:
+    async def get_aggregated_data(self, user_id: str, bank_id: str | None = None) -> dict:
         """
         Get aggregated expense data by tags (for graphs).
 
@@ -689,9 +709,7 @@ class ExpenseService:
                 links.c.tag_id,
                 func.sum(case((ee.c.amount > 0, ee.c.amount), else_=0)).label("tags_wise_summation"),
             )
-            .select_from(
-                e.join(ee, ee.c.expense_id == e.c.id).join(links, links.c.expense_entry_id == ee.c.id)
-            )
+            .select_from(e.join(ee, ee.c.expense_id == e.c.id).join(links, links.c.expense_entry_id == ee.c.id))
             .where(e.c.user_id == uid)
         )
 
@@ -722,12 +740,12 @@ class ExpenseService:
     async def get_analytics_overview(
         self,
         user_id: str,
-        bank_ids: Optional[List[str]] = None,
-        tag_ids: Optional[List[str]] = None,
-        exclude_tag_ids: Optional[List[str]] = None,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
-        keyword: Optional[str] = None,
+        bank_ids: list[str] | None = None,
+        tag_ids: list[str] | None = None,
+        exclude_tag_ids: list[str] | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        keyword: str | None = None,
     ) -> dict:
         """Aggregate spend by bank, by tag, and by calendar day (for the
         Analytics charts). Only positive (debit) amounts count as spend -
@@ -821,14 +839,7 @@ class ExpenseService:
             tag_names = {t.id: t.name for t in tag_rows}
 
         return {
-            "by_bank": [
-                {"bank_name": r.bank_name, "total": float(r.total)} for r in by_bank_rows
-            ],
-            "by_tag": [
-                {"tag_name": tag_names.get(r.tag_id, "Unknown"), "total": float(r.total)}
-                for r in by_tag_rows
-            ],
-            "daily": [
-                {"date": r.day.isoformat(), "total": float(r.total)} for r in daily_rows
-            ],
+            "by_bank": [{"bank_name": r.bank_name, "total": float(r.total)} for r in by_bank_rows],
+            "by_tag": [{"tag_name": tag_names.get(r.tag_id, "Unknown"), "total": float(r.total)} for r in by_tag_rows],
+            "daily": [{"date": r.day.isoformat(), "total": float(r.total)} for r in daily_rows],
         }

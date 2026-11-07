@@ -30,9 +30,22 @@ dependencies = [
 dev = [
     "httpx>=0.28.1",
     "motor>=3.7.1",
+    "pre-commit>=4.6.2",
     "pytest>=9.2.0",
     "pytest-asyncio>=1.4.1",
+    "ruff>=0.17.4",
 ]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+ignore = ["E501"]
+
+[tool.ruff.format]
+quote-style = "double"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

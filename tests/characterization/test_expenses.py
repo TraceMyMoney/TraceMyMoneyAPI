@@ -309,9 +309,7 @@ async def test_graph_data_is_always_empty_bug(client, auth_headers, created_bank
         "/expenses/create",
         json={
             "bank_id": created_bank["id"],
-            "expenses": [
-                {"amount": 50.0, "description": "d", "entry_tags": ["sometag"], "type": "expense"}
-            ],
+            "expenses": [{"amount": 50.0, "description": "d", "entry_tags": ["sometag"], "type": "expense"}],
         },
         headers=auth_headers,
     )
@@ -319,3 +317,34 @@ async def test_graph_data_is_always_empty_bug(client, auth_headers, created_bank
     resp = await client.get("/expenses/graph-data", headers=auth_headers)
     assert resp.status_code == 200
     assert resp.json() == {"aggregated_data": {}}
+
+
+async def test_get_expenses_exclude_tags(client, auth_headers, created_bank):
+    import json
+
+    tag_a = (await client.post("/entry-tags/create", json={"name": "A"}, headers=auth_headers)).json()
+    tag_b = (await client.post("/entry-tags/create", json={"name": "B"}, headers=auth_headers)).json()
+    id_a, id_b = tag_a["tag_id"], tag_b["tag_id"]
+    payload = {
+        "bank_id": created_bank["id"],
+        "expenses": [
+            {"amount": 10.0, "description": "tagged a", "entry_tags": [id_a], "type": "expense"},
+            {"amount": 20.0, "description": "tagged b", "entry_tags": [id_b], "type": "expense"},
+        ],
+        "created_at": "01/01/2026 00:00",
+    }
+    await client.post("/expenses/create", json=payload, headers=auth_headers)
+
+    data = {"advanced_search": True, "exclude_tags": [id_a], "page_number": 1, "per_page": 10}
+    resp = await client.get("/expenses/", params={"data": json.dumps(data)}, headers=auth_headers)
+    assert resp.status_code == 200
+    body = resp.json()
+    descriptions = [i["description"] for exp in body["expenses"] for i in exp["expenses"]]
+    assert descriptions == ["tagged b"]
+    assert body["non_topup_total"] == 20.0
+
+    # exclusion still applies when operator=or
+    data["operator"] = "or"
+    resp = await client.get("/expenses/", params={"data": json.dumps(data)}, headers=auth_headers)
+    descriptions = [i["description"] for exp in resp.json()["expenses"] for i in exp["expenses"]]
+    assert descriptions == ["tagged b"]

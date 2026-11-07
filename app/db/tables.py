@@ -5,11 +5,11 @@ models mirroring Mongo documents) per the layering convention in CLAUDE.md.
 """
 
 import uuid
+
 from sqlalchemy import (
     ARRAY,
     Boolean,
     Column,
-    Date,
     DateTime,
     ForeignKey,
     Integer,
@@ -117,13 +117,12 @@ user_preferences = Table(
     "user_preferences",
     metadata,
     uuid_pk(),
-    Column(
-        "user_id", UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True
-    ),
+    Column("user_id", UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True),
     Column("page_size", Integer, nullable=False, server_default="5"),
     Column("is_dark_mode", Boolean, nullable=False, server_default="false"),
     Column("privacy_mode_enabled", Boolean, nullable=False, server_default="false"),
     Column("banks_display_order", ARRAY(UUID(as_uuid=True)), nullable=False, server_default="{}"),
+    Column("default_excluded_tags", ARRAY(UUID(as_uuid=True)), nullable=False, server_default="{}"),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
 )

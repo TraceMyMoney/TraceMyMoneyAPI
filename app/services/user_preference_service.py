@@ -1,8 +1,10 @@
 import uuid
 from datetime import datetime, timezone
+
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.db.tables import user_preferences
 from app.models.user_preference import UserPreferenceModel
 from app.schemas.user_preference import UserPreferenceUpdate
@@ -16,9 +18,7 @@ class UserPreferenceService:
 
     async def get_or_create_preferences(self, user_id: str) -> UserPreferenceModel:
         """Get user preferences or create default if doesn't exist."""
-        result = await self.db.execute(
-            select(user_preferences).where(user_preferences.c.user_id == uuid.UUID(user_id))
-        )
+        result = await self.db.execute(select(user_preferences).where(user_preferences.c.user_id == uuid.UUID(user_id)))
         row = result.mappings().first()
 
         if not row:
@@ -41,12 +41,15 @@ class UserPreferenceService:
 
         return UserPreferenceModel(**{**row, "_id": str(row["id"])})
 
-    async def update_preferences(
-        self, user_id: str, pref_data: UserPreferenceUpdate
-    ) -> UserPreferenceModel:
+    async def update_preferences(self, user_id: str, pref_data: UserPreferenceUpdate) -> UserPreferenceModel:
         """Update user preferences (upserts, defaulting any unset column per the table schema)."""
         update_data = pref_data.model_dump(exclude_unset=True)
         update_data["updated_at"] = datetime.now(timezone.utc)
+        for key in ("banks_display_order", "default_excluded_tags"):
+            if update_data.get(key) is not None:
+                update_data[key] = [uuid.UUID(str(i)) for i in update_data[key]]
+            elif key in update_data:
+                del update_data[key]  # explicit null = leave unchanged
 
         uid = uuid.UUID(user_id)
         insert_values = {

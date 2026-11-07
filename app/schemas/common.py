@@ -1,5 +1,5 @@
-from typing import List, Optional, Any
-from datetime import datetime
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -14,17 +14,18 @@ class DateRange(BaseModel):
     """Date range filter."""
 
     start_date: str  # Format: "DD/MM/YYYY HH:MM"
-    end_date: Optional[str] = None
+    end_date: str | None = None
 
 
 class AdvancedSearchParams(BaseModel):
     """Advanced search parameters for expenses."""
 
-    bank_id: Optional[str] = None
-    search_by_tags: Optional[List[str]] = None
-    search_by_bank_ids: Optional[List[str]] = None
-    search_by_keyword: Optional[str] = None
-    search_by_daterange: Optional[DateRange] = None
+    bank_id: str | None = None
+    search_by_tags: list[str] | None = None
+    exclude_tags: list[str] | None = None
+    search_by_bank_ids: list[str] | None = None
+    search_by_keyword: str | None = None
+    search_by_daterange: DateRange | None = None
     operator: str = Field(default="and", pattern="^(and|or)$")
     advanced_search: bool = False
     page_number: int = Field(default=1, ge=1)
@@ -40,4 +41,4 @@ class SuccessResponse(BaseModel):
 class ErrorResponse(BaseModel):
     """Generic error response."""
 
-    error: str | List[Any]
+    error: str | list[Any]
