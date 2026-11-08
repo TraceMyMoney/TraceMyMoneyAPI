@@ -141,6 +141,8 @@ class IngestService:
             .all()
         ]
         bank_id = match_bank(text, parsed.bank_hint, user_banks)
+        # No account named in the SMS -> bank_id stays None and the transaction waits in
+        # the review list for the user to choose the account.
         txn_date = parsed.txn_date or _parse_received_at(received_at).replace(
             hour=0, minute=0, second=0, microsecond=0, tzinfo=None
         )
@@ -168,7 +170,40 @@ class IngestService:
         )
         inserted = (await self.db.execute(stmt)).first()
         await self.db.commit()
+        auto_add = (
+            await self.db.execute(select(ingest_tokens.c.auto_add).where(ingest_tokens.c.user_id == uid))
+        ).scalar()
+
         if inserted is None:
+            # Already received. If it is still waiting in the review list (it came in
+            # before auto-add existed, or before the account was recognised) and
+            # auto-add can handle it now, add it instead of ignoring the re-send.
+            existing = (
+                (
+                    await self.db.execute(
+                        select(pending_transactions).where(
+                            pending_transactions.c.user_id == uid,
+                            pending_transactions.c.dedupe_hash == values["dedupe_hash"],
+                        )
+                    )
+                )
+                .mappings()
+                .first()
+            )
+            target = (str(existing["bank_id"]) if existing and existing["bank_id"] else None) or bank_id
+            if existing and existing["status"] == "pending" and auto_add and target:
+                try:
+                    added = await self.confirm(user_id, str(existing["id"]), target, None, [], None)
+                    transaction = _serialize(existing)
+                    transaction["status"] = "confirmed"
+                    return {
+                        "status": "added",
+                        "parsed_by": parsed_by,
+                        "expense_id": added["expense_id"],
+                        "transaction": transaction,
+                    }
+                except Exception:
+                    logger.exception("Auto-add of a waiting transaction failed")
             return {"status": "duplicate", "reason": "This message was already received"}
 
         row = (
@@ -180,9 +215,6 @@ class IngestService:
 
         # Auto-add: the SMS clearly names one of the user's accounts, so skip the
         # review list. Anything unclear (or with the switch off) stays pending.
-        auto_add = (
-            await self.db.execute(select(ingest_tokens.c.auto_add).where(ingest_tokens.c.user_id == uid))
-        ).scalar()
         if auto_add and bank_id:
             try:
                 added = await self.confirm(user_id, transaction["id"], None, None, [], None)

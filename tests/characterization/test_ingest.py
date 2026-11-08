@@ -66,6 +66,7 @@ async def test_webhook_requires_valid_token(client, auth_headers):
 
 async def test_sms_lands_in_pending_and_dedupes(client, auth_headers, created_bank):
     token = await _token(client, auth_headers)
+    await client.patch("/ingest/settings", json={"auto_add": False}, headers=auth_headers)
     hdr = {"X-Ingest-Token": token}
 
     first = await client.post("/ingest/sms", json={"text": HDFC_SMS}, headers=hdr)
@@ -81,6 +82,20 @@ async def test_sms_lands_in_pending_and_dedupes(client, auth_headers, created_ba
 
     pending = (await client.get("/ingest/pending", headers=auth_headers)).json()["transactions"]
     assert len(pending) == 1
+
+
+async def test_sms_naming_no_account_always_waits_in_the_review_list(client, auth_headers, created_bank):
+    hdr = {"X-Ingest-Token": await _token(client, auth_headers)}  # auto-add is on; "Chase" is the only account
+    resp = await client.post("/ingest/sms", json={"text": HDFC_SMS}, headers=hdr)
+    assert resp.status_code == 201 and resp.json()["status"] == "stored"
+    assert resp.json()["transaction"]["bank_id"] is None
+    listing = (await client.get("/expenses/", params={"bank_id": created_bank["id"]}, headers=auth_headers)).json()
+    assert listing["expenses"] == []
+    pending = (await client.get("/ingest/pending", headers=auth_headers)).json()["transactions"]
+    assert len(pending) == 1
+    # confirming needs an account to be chosen
+    no_bank = await client.post(f"/ingest/pending/{pending[0]['id']}/confirm", json={}, headers=auth_headers)
+    assert no_bank.status_code == 400
 
 
 async def test_rotating_token_revokes_the_old_one(client, auth_headers):
@@ -99,15 +114,12 @@ async def test_rotating_token_revokes_the_old_one(client, auth_headers):
 
 async def test_confirm_creates_then_appends_to_the_day(client, auth_headers, created_bank):
     hdr = {"X-Ingest-Token": await _token(client, auth_headers)}
+    await client.patch("/ingest/settings", json={"auto_add": False}, headers=auth_headers)
     await client.post("/ingest/sms", json={"text": HDFC_SMS}, headers=hdr)
     second = "Rs 25.00 spent on HDFC Bank Card x1234 at CHAI POINT on 06/11/26."
     await client.post("/ingest/sms", json={"text": second}, headers=hdr)
     pending = (await client.get("/ingest/pending", headers=auth_headers)).json()["transactions"]
     assert len(pending) == 2
-
-    # bank isn't matched ("Chase" is not in the SMS), so confirming without one is a 400
-    no_bank = await client.post(f"/ingest/pending/{pending[0]['id']}/confirm", json={}, headers=auth_headers)
-    assert no_bank.status_code == 400
 
     for item in pending:
         ok = await client.post(
@@ -124,6 +136,7 @@ async def test_confirm_creates_then_appends_to_the_day(client, auth_headers, cre
 
 async def test_credit_confirms_as_topup_and_reject_removes(client, auth_headers, created_bank):
     hdr = {"X-Ingest-Token": await _token(client, auth_headers)}
+    await client.patch("/ingest/settings", json={"auto_add": False}, headers=auth_headers)
     await client.post(
         "/ingest/sms", json={"text": "Rs 500.00 credited to A/C XX1234 on 05-11-26 by UPI from ANITA"}, headers=hdr
     )
@@ -314,3 +327,18 @@ async def test_added_sms_follows_the_normal_expense_rules(client, auth_headers):
     pending_id = stored.json()["transaction"]["id"]
     stolen = await client.post(f"/ingest/pending/{pending_id}/confirm", json={"bank_id": sbi["id"]}, headers=other_headers)
     assert stolen.status_code == 400
+
+
+async def test_resending_a_waiting_sms_adds_it_when_auto_add_can_handle_it(client, auth_headers):
+    sbi = await _bank(client, auth_headers, "SBI")
+    hdr = {"X-Ingest-Token": await _token(client, auth_headers)}
+    await client.patch("/ingest/settings", json={"auto_add": False}, headers=auth_headers)
+    assert (await client.post("/ingest/sms", json={"text": SBI_SMS}, headers=hdr)).json()["status"] == "stored"
+
+    await client.patch("/ingest/settings", json={"auto_add": True}, headers=auth_headers)
+    resent = await client.post("/ingest/sms", json={"text": SBI_SMS}, headers=hdr)
+    assert resent.json()["status"] == "added"
+    listing = (await client.get("/expenses/", params={"bank_id": sbi["id"]}, headers=auth_headers)).json()
+    assert listing["expenses"][0]["expense_total"] == 20.0
+    # and a third send is now a plain duplicate
+    assert (await client.post("/ingest/sms", json={"text": SBI_SMS}, headers=hdr)).json()["status"] == "duplicate"
