@@ -11,6 +11,7 @@ dashboard listing every user so access can be granted/revoked
 individually. Drops `app_settings` and adds `users.chatbot_enabled`
 instead.
 """
+
 from collections.abc import Sequence
 
 import sqlalchemy as sa
@@ -18,8 +19,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = '0af3fa190666'
-down_revision: str | Sequence[str] | None = 'e0b3bb796442'
+revision: str = "0af3fa190666"
+down_revision: str | Sequence[str] | None = "e0b3bb796442"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

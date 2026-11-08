@@ -8,6 +8,7 @@ Written by hand against app/db/tables.py (no live Postgres was reachable in
 this environment to run --autogenerate; verify with `alembic upgrade head`
 once Postgres is available). See PLAN.md for the schema rationale.
 """
+
 from collections.abc import Sequence
 
 import sqlalchemy as sa
@@ -16,7 +17,7 @@ from sqlalchemy.dialects import postgresql
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = '330acedcd320'
+revision: str = "330acedcd320"
 down_revision: str | Sequence[str] | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -38,7 +39,9 @@ def upgrade() -> None:
     op.create_table(
         "banks",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("user_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "user_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+        ),
         sa.Column("name", sa.String(20), nullable=False),
         sa.Column("initial_balance", sa.Numeric(18, 2), nullable=False, server_default="0"),
         sa.Column("current_balance", sa.Numeric(18, 2), nullable=False, server_default="0"),
@@ -51,7 +54,9 @@ def upgrade() -> None:
     op.create_table(
         "expense_entry_tags",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("user_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "user_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+        ),
         sa.Column("name", sa.String(50), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.UniqueConstraint("user_id", "name", name="uq_expense_entry_tags_user_name"),
@@ -60,8 +65,12 @@ def upgrade() -> None:
     op.create_table(
         "expenses",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("user_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("bank_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("banks.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "user_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+        ),
+        sa.Column(
+            "bank_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("banks.id", ondelete="CASCADE"), nullable=False
+        ),
         sa.Column("bank_name", sa.Text(), nullable=False),
         sa.Column("day", sa.Text(), nullable=False),
         sa.Column("expense_total", sa.Numeric(18, 2), nullable=False, server_default="0"),
@@ -77,7 +86,12 @@ def upgrade() -> None:
         "expense_entries",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
         sa.Column("ee_id", sa.Text(), nullable=False, unique=True),
-        sa.Column("expense_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("expenses.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "expense_id",
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("expenses.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("amount", sa.Numeric(18, 2), nullable=False),
         sa.Column("description", sa.Text(), nullable=False, server_default=""),
         sa.Column("expense_entry_type", sa.Text(), nullable=False, server_default="expense"),
@@ -88,18 +102,36 @@ def upgrade() -> None:
 
     op.create_table(
         "expense_entry_tag_links",
-        sa.Column("expense_entry_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("expense_entries.id", ondelete="CASCADE"), primary_key=True),
-        sa.Column("tag_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("expense_entry_tags.id", ondelete="CASCADE"), primary_key=True),
+        sa.Column(
+            "expense_entry_id",
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("expense_entries.id", ondelete="CASCADE"),
+            primary_key=True,
+        ),
+        sa.Column(
+            "tag_id",
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("expense_entry_tags.id", ondelete="CASCADE"),
+            primary_key=True,
+        ),
     )
 
     op.create_table(
         "user_preferences",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("user_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True),
+        sa.Column(
+            "user_id",
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("users.id", ondelete="CASCADE"),
+            nullable=False,
+            unique=True,
+        ),
         sa.Column("page_size", sa.Integer(), nullable=False, server_default="5"),
         sa.Column("is_dark_mode", sa.Boolean(), nullable=False, server_default="false"),
         sa.Column("privacy_mode_enabled", sa.Boolean(), nullable=False, server_default="false"),
-        sa.Column("banks_display_order", postgresql.ARRAY(postgresql.UUID(as_uuid=True)), nullable=False, server_default="{}"),
+        sa.Column(
+            "banks_display_order", postgresql.ARRAY(postgresql.UUID(as_uuid=True)), nullable=False, server_default="{}"
+        ),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
     )

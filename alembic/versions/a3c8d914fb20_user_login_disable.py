@@ -9,6 +9,7 @@ just revoke chatbot access) from the admin dashboard - enforced in
 app/api/deps.get_current_user (kills already-issued tokens too, not just
 new logins) and app/api/v1/endpoints/auth.py's login/refresh.
 """
+
 from collections.abc import Sequence
 
 import sqlalchemy as sa
@@ -16,8 +17,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = 'a3c8d914fb20'
-down_revision: str | Sequence[str] | None = 'f6ff3284212e'
+revision: str = "a3c8d914fb20"
+down_revision: str | Sequence[str] | None = "f6ff3284212e"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

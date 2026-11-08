@@ -10,6 +10,7 @@ users, with only an admin account allowed to flip it (see
 app/api/deps.py's AdminUser dependency and
 app/api/v1/endpoints/settings.py).
 """
+
 from collections.abc import Sequence
 
 import sqlalchemy as sa
@@ -17,8 +18,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = 'e0b3bb796442'
-down_revision: str | Sequence[str] | None = 'deb615c9be22'
+revision: str = "e0b3bb796442"
+down_revision: str | Sequence[str] | None = "deb615c9be22"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
