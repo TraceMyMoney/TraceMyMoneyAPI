@@ -73,9 +73,14 @@ async def get_ingest_user_id(
 
 
 async def get_current_user(
-    user_service: UserService = Depends(get_user_service), authorization: str | None = Header(None)
+    user_service: UserService = Depends(get_user_service),
+    db: AsyncSession = Depends(get_db),
+    authorization: str | None = Header(None),
 ) -> UserModel:
-    """Get current authenticated user from JWT token in Authorization header."""
+    """Get current authenticated user from the Authorization header.
+
+    Accepts the app's own JWT, or a Claude connector OAuth access token (what
+    the MCP server forwards) - looked up in oauth_tokens when it isn't a JWT."""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not validate credentials"
     )
@@ -88,7 +93,13 @@ async def get_current_user(
 
     payload = decode_access_token(token)
     if payload is None:
-        raise credentials_exception
+        # Not a JWT: maybe an OAuth connector token (opaque, no dots).
+        from app.services.oauth_service import OAuthService
+
+        oauth_user = await OAuthService(db).user_for_token(token)
+        if oauth_user is None:
+            raise credentials_exception
+        payload = {"user_id": oauth_user["id"]}
 
     user_id: str = payload.get("user_id")
     if user_id is None:

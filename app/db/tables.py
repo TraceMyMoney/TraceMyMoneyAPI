@@ -186,3 +186,46 @@ _migration_id_map = Table(
     Column("old_id", String(24), primary_key=True),
     Column("new_id", UUID(as_uuid=True), nullable=False),
 )
+
+
+# ── OAuth (Claude connector / MCP server) ─────────────────────────────────
+# Registered OAuth clients (Claude registers itself via Dynamic Client
+# Registration), short-lived single-use authorization codes, and long-lived
+# access tokens (stored as a sha256 hash, like ingest_tokens).
+oauth_clients = Table(
+    "oauth_clients",
+    metadata,
+    uuid_pk(),
+    Column("client_id", String(255), nullable=False, unique=True),
+    Column("client_name", String(255), nullable=False),
+    Column("redirect_uris", JSONB, nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+)
+
+oauth_codes = Table(
+    "oauth_codes",
+    metadata,
+    uuid_pk(),
+    Column("code", String(128), nullable=False, unique=True),
+    Column("client_id", UUID(as_uuid=True), ForeignKey("oauth_clients.id", ondelete="CASCADE"), nullable=False),
+    Column("user_id", UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+    Column("redirect_uri", Text, nullable=False),
+    Column("code_challenge", String(128)),
+    Column("expires_at", DateTime(timezone=True), nullable=False),
+    Column("used", Boolean, nullable=False, server_default="false"),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+)
+
+oauth_tokens = Table(
+    "oauth_tokens",
+    metadata,
+    uuid_pk(),
+    Column("token_hash", String(64), nullable=False, unique=True),
+    Column("client_id", UUID(as_uuid=True), ForeignKey("oauth_clients.id", ondelete="CASCADE"), nullable=False),
+    Column("user_id", UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+    Column("revoked", Boolean, nullable=False, server_default="false"),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column("last_used_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column("expires_at", DateTime(timezone=True), nullable=False),
+    Index("ix_oauth_tokens_user_id", "user_id"),
+)

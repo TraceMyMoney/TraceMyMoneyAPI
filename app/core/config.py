@@ -54,6 +54,16 @@ class Settings(BaseSettings):
     # no-ops - nothing in the app hard-depends on this being configured.
     TYPESAFE_API_KEY: str = environ.get("TYPESAFE_API_KEY", "")
 
+    # OAuth / MCP connector. API_BASE_URL is this API's public URL (used to
+    # build the OAuth metadata Claude fetches); FRONTEND_BASE_URL is where the
+    # "Authorize Claude?" page lives. Claude may only be redirected to hosts
+    # in OAUTH_ALLOWED_REDIRECT_HOSTS (comma separated, subdomains included).
+    API_BASE_URL: str = environ.get("API_BASE_URL", "http://localhost:8000").rstrip("/")
+    FRONTEND_BASE_URL: str = environ.get("FRONTEND_BASE_URL", "http://localhost:5173").rstrip("/")
+    OAUTH_ALLOWED_REDIRECT_HOSTS: str = environ.get(
+        "OAUTH_ALLOWED_REDIRECT_HOSTS", "claude.ai,claude.com,localhost,127.0.0.1"
+    )
+
     class Config:
         env_file = ".env"
         case_sensitive = True
