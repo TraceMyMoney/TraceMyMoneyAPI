@@ -57,9 +57,11 @@ async def ingest_sms(payload: IngestSmsRequest, user_id: IngestUser, ingest: Ing
     # One log line per message so "why was my SMS not added?" can be answered from
     # the server log. Long digit runs (reference and account numbers) are masked.
     logger.info(
-        "ingest sms: status=%s parsed_by=%s chars=%d preview=%r reason=%s",
+        "ingest sms: status=%s parsed_by=%s account_found=%s auto_add=%s chars=%d preview=%r reason=%s",
         result["status"],
         result.get("parsed_by", "-"),
+        bool((result.get("transaction") or {}).get("bank_id")),
+        result.get("auto_add", "-"),
         len(payload.text),
         re.sub(r"\d{6,}", "#", payload.text[:100]),
         result.get("reason", "-"),

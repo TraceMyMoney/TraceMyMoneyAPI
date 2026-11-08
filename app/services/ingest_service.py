@@ -190,11 +190,12 @@ class IngestService:
                     "status": "added",
                     "parsed_by": parsed_by,
                     "expense_id": added["expense_id"],
+                    "auto_add": True,
                     "transaction": transaction,
                 }
             except Exception:
                 logger.exception("Auto-add failed; leaving the transaction in the review list")
-        return {"status": "stored", "parsed_by": parsed_by, "transaction": transaction}
+        return {"status": "stored", "parsed_by": parsed_by, "auto_add": bool(auto_add), "transaction": transaction}
 
     # ── inbox ────────────────────────────────────────────────────────────
     async def list_pending(self, user_id: str, status: str = "pending") -> list[dict]:

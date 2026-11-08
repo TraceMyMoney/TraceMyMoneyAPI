@@ -122,6 +122,8 @@ def _clean_merchant(raw: str) -> str | None:
     name = re.sub(r"\s+", " ", name).strip(" .-:,*")
     if not name or re.match(r"(?:a/?c|acct|account|card)\b", name, re.I):
         return None
+    if re.fullmatch(r"[\d\sxX*]+", name):  # a masked or numeric handle tells the user nothing
+        return None
     if name.isupper():
         name = name.title()
     return name[:100]
