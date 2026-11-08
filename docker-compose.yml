@@ -19,6 +19,12 @@ services:
       - "5000:5000"
     env_file:
       - ../env/.env.prod
+    environment:
+      # Public URLs for the Claude connector's OAuth flow. Without these the
+      # API falls back to its localhost dev defaults and sends the browser to
+      # http://localhost:5173/oauth/authorize. Not secrets, so set here.
+      - API_BASE_URL=https://api.stalk-my-money.in
+      - FRONTEND_BASE_URL=https://app.stalk-my-money.in
     networks:
       - app-network
       - edge-network
