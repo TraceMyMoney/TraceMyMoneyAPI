@@ -1,5 +1,17 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import auth, banks, expenses, entry_tags, user_preferences, chat, admin, settings
+
+from app.api.v1.endpoints import (
+    admin,
+    auth,
+    banks,
+    chat,
+    entry_tags,
+    expenses,
+    ingest,
+    profile,
+    settings,
+    user_preferences,
+)
 
 api_router = APIRouter()
 
@@ -12,3 +24,5 @@ api_router.include_router(user_preferences.router, prefix="/user-preferences", t
 api_router.include_router(chat.router, prefix="/user", tags=["chat"])
 api_router.include_router(admin.router, prefix="/admin", tags=["admin"])
 api_router.include_router(settings.router, tags=["settings"])
+api_router.include_router(ingest.router, prefix="/ingest", tags=["ingest"])
+api_router.include_router(profile.router, prefix="/profile", tags=["profile"])

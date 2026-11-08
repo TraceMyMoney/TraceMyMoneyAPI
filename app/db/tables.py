@@ -113,6 +113,40 @@ expense_entry_tag_links = Table(
     ),
 )
 
+# Personal webhook token for the SMS-forwarding automation (iPhone Shortcuts
+# etc.), which can't do the JWT login/refresh dance. Only the sha256 of the
+# token is stored; the plaintext is shown once, when it is created.
+ingest_tokens = Table(
+    "ingest_tokens",
+    metadata,
+    uuid_pk(),
+    Column("user_id", UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True),
+    Column("token_hash", String(64), nullable=False, unique=True),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column("last_used_at", DateTime(timezone=True)),
+)
+
+# Transactions parsed from forwarded bank SMS, waiting for the user to
+# confirm them. Nothing is written to `expenses` until confirmation.
+pending_transactions = Table(
+    "pending_transactions",
+    metadata,
+    uuid_pk(),
+    Column("user_id", UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+    Column("raw_text", Text, nullable=False),
+    Column("amount", Numeric(18, 2), nullable=False),
+    Column("txn_type", String(10), nullable=False),  # "debit" | "credit"
+    Column("merchant", String(200)),
+    Column("description", String(200)),
+    Column("txn_date", DateTime(timezone=True), nullable=False),
+    Column("account_hint", String(10)),
+    Column("bank_id", UUID(as_uuid=True), ForeignKey("banks.id", ondelete="SET NULL")),
+    Column("status", String(12), nullable=False, server_default="pending"),  # pending | confirmed | rejected
+    Column("dedupe_hash", String(64), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    UniqueConstraint("user_id", "dedupe_hash", name="uq_pending_transactions_user_hash"),
+)
+
 user_preferences = Table(
     "user_preferences",
     metadata,

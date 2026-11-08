@@ -1,4 +1,4 @@
-name: CI/CD - Build, Push & Deploy
+name: CI/CD - Build & Deploy
 
 on:
   push:
@@ -10,93 +10,83 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-test-push:
+  # Every branch / PR: make sure the image still builds. Nothing is pushed to
+  # Docker Hub. The real image is built on the EC2 box at deploy time.
+  build-check:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      # - name: Start MongoDB
-      #   uses: supercharge/mongodb-github-action@1.12.0
-      #   with:
-      #     mongodb-version: '8'
-      #     mongodb-root-username: admin
-      #     mongodb-root-password: ${{ secrets.MONGO_PASSWORD }}
-
-      # - name: Load test env
-      #   run: |
-      #     set -a
-      #     source ./env/.test_env
-      #     set +a
-
-      # - name: Run pytest
-      #   run: pytest
-
-      - name: Set Version
-        run: |
-          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-          VERSION="${{ github.ref_name }}_${SHORT_SHA}"
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Build Docker Image
-        run: |
-          docker build -t parimalmahindrakar/track_money_api:${{ env.VERSION }} .
-
-      - name: Push Branch Image
-        run: |
-          docker push parimalmahindrakar/track_money_api:${{ env.VERSION }}
-
-      - name: Tag & Push latest (master only)
-        if: github.ref_name == 'master'
-        run: |
-          docker tag parimalmahindrakar/track_money_api:${{ env.VERSION }} \
-                     parimalmahindrakar/track_money_api:latest
-          docker push parimalmahindrakar/track_money_api:latest
+      - name: Build Docker Image (no push)
+        run: docker build -t smm-api:ci .
 
   deploy:
     runs-on: ubuntu-latest
-    needs: build-test-push
-    if: github.ref_name == 'master'
+    needs: build-check
+    if: github.ref_name == 'master' && github.event_name != 'pull_request'
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.5.3
         with:
           ssh-private-key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
 
-      - name: Copy source to EC2
-        run: |
-          rsync -avz --exclude '.git' --exclude '__pycache__' --exclude '*.pyc' \
-            -e "ssh -o StrictHostKeyChecking=no" \
-            . ubuntu@${{ secrets.EC2_HOST }}:~/TraceMyMoneyAPI/
-
       - name: Deploy to EC2
         run: |
-          ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} << EOF
+          # The deploy dir is passed as a positional arg to the remote bash
+          # (bash -s -- <path>, read as $1) because the heredoc is
+          # single-quoted: that stops the runner from expanding anything in
+          # the remote script, and also stops any variable set inside it
+          # from expanding on the remote.
+          ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} bash -s -- /home/ubuntu/TraceMyMoneyAPI << 'EOF'
+            set -e
+            DEPLOY_DIR="$1"
+            cd "$DEPLOY_DIR"
 
-            echo "Building and starting containers..."
-            cd ~/TraceMyMoneyAPI
-            docker compose down || true
-            docker compose up --build -d
+            echo "=== Syncing repo from git ==="
+            git fetch origin master
+            git reset --hard origin/master
 
-            echo "Deployment completed successfully!"
+            echo "=== Making sure the shared nginx network exists ==="
+            # nginx lives in ~/gateway-nginx and reaches this API through
+            # edge-network; compose refuses to start without it.
+            docker network inspect edge-network >/dev/null 2>&1 || docker network create edge-network
 
+            echo "=== Building image on this box ==="
+            # Built before stopping anything, so a broken build leaves the
+            # running API untouched.
+            docker compose build
+
+            echo "=== Running database migrations ==="
+            # Uses ../env/.env.prod (DATABASE_URL) via the compose env_file.
+            # set -e aborts the deploy here if a migration fails.
+            docker compose run --rm --no-deps trackmoney_api uv run alembic upgrade head
+
+            echo "=== Restarting containers ==="
+            docker compose down --remove-orphans
+            docker compose up -d --remove-orphans
+
+            echo "=== Waiting for the API ==="
+            for i in $(seq 1 15); do
+              if curl -fsS -o /dev/null http://localhost:5000/docs; then
+                echo "API is up"
+                break
+              fi
+              if [ "$i" = "15" ]; then
+                echo "API did not come up in time. Last logs:"
+                docker logs --tail 50 stalkmymoney_api || true
+                exit 1
+              fi
+              sleep 3
+            done
+
+            echo "=== Cleaning up dangling images ==="
+            docker image prune -f
+
+            echo "=== Container status ==="
+            docker compose ps
+
+            echo "=== Deployment complete ==="
           EOF
