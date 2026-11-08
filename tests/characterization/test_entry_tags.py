@@ -1,7 +1,5 @@
 """Characterization tests for /entry-tags."""
 
-import pytest
-
 
 async def test_get_entry_tags_empty(client, auth_headers):
     resp = await client.get("/entry-tags/", headers=auth_headers)

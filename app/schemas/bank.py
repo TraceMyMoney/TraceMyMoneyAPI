@@ -1,5 +1,5 @@
-from typing import Optional
 from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 
@@ -15,7 +15,7 @@ class BankCreate(BankBase):
     initial_balance: float = Field(..., gt=0)
     current_balance: float = Field(..., gt=0)
     total_disbursed_till_now: float = 0.0
-    created_at: Optional[str] = None  # Optional date string from client
+    created_at: str | None = None  # Optional date string from client
 
     model_config = {
         "json_schema_extra": {
@@ -32,10 +32,10 @@ class BankCreate(BankBase):
 class BankUpdate(BaseModel):
     """Schema for updating a bank."""
 
-    name: Optional[str] = Field(None, max_length=20)
-    initial_balance: Optional[float] = Field(None, gt=0)
-    current_balance: Optional[float] = None
-    total_disbursed_till_now: Optional[float] = None
+    name: str | None = Field(None, max_length=20)
+    initial_balance: float | None = Field(None, gt=0)
+    current_balance: float | None = None
+    total_disbursed_till_now: float | None = None
 
 
 class BankResponse(BankBase):

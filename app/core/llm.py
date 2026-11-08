@@ -22,16 +22,15 @@ config must never take the chatbot down entirely.
 """
 
 import logging
-from typing import Optional
 
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
 _cached_llm = None
-_cached_key: Optional[tuple] = None
+_cached_key: tuple | None = None
 _last_provider = "groq"
-_last_model: Optional[str] = None
+_last_model: str | None = None
 
 SUPPORTED_PROVIDERS = ("groq", "openai", "anthropic", "openrouter")
 
@@ -69,7 +68,7 @@ def current_provider() -> str:
     return _last_provider
 
 
-def current_model() -> Optional[str]:
+def current_model() -> str | None:
     """The model name the most recently built/cached client belongs to -
     used only to label app/core/llm_metrics.py's usage records."""
     return _last_model

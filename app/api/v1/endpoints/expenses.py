@@ -1,28 +1,30 @@
 import json
-from typing import Optional, List
-from fastapi import APIRouter, HTTPException, status, Query
+
+from fastapi import APIRouter, HTTPException, Query, status
 
 from app.api.deps import CurrentUser, ExpenseServiceDep
-from app.schemas.expense import ExpenseCreate, ExpenseListResponse
-from app.schemas.expense_entry import ExpenseEntryCreate, ExpenseEntryUpdate, ExpenseEntryAddRequest
 from app.schemas.common import AdvancedSearchParams
+from app.schemas.expense import ExpenseCreate, ExpenseListResponse
+from app.schemas.expense_entry import ExpenseEntryAddRequest, ExpenseEntryUpdate
 
 router = APIRouter()
 
 
 @router.get("/")
 async def get_expenses(
-    current_user: CurrentUser, expense_service: ExpenseServiceDep, data: Optional[str] = Query(None),
-    per_page: Optional[int] = Query(5), page_number: Optional[int] = Query(1), bank_id: Optional[str] = Query(None)
+    current_user: CurrentUser,
+    expense_service: ExpenseServiceDep,
+    data: str | None = Query(None),
+    per_page: int | None = Query(5),
+    page_number: int | None = Query(1),
+    bank_id: str | None = Query(None),
 ):
     if data:
         try:
             params_dict = json.loads(data)
             search_params = AdvancedSearchParams(**params_dict)
-        except:
-            search_params = AdvancedSearchParams(
-                bank_id=bank_id, page_number=page_number, per_page=per_page
-            )
+        except Exception:
+            search_params = AdvancedSearchParams(bank_id=bank_id, page_number=page_number, per_page=per_page)
     else:
         search_params = AdvancedSearchParams(bank_id=bank_id, page_number=page_number, per_page=per_page)
 
@@ -31,13 +33,16 @@ async def get_expenses(
     )
 
     return ExpenseListResponse(
-        expenses=expenses, total_expenses=total_count, non_topup_total=non_topup_total, topup_total=topup_total,
+        expenses=expenses,
+        total_expenses=total_count,
+        non_topup_total=non_topup_total,
+        topup_total=topup_total,
     ).model_dump()
 
 
 @router.get("/graph-data")
 async def get_graph_data(
-    current_user: CurrentUser, expense_service: ExpenseServiceDep, bank_id: Optional[str] = Query(None)
+    current_user: CurrentUser, expense_service: ExpenseServiceDep, bank_id: str | None = Query(None)
 ):
     """Get aggregated expense data by tags for graphs."""
     aggregated_data = await expense_service.get_aggregated_data(current_user.id, bank_id)
@@ -48,12 +53,12 @@ async def get_graph_data(
 async def get_analytics_overview(
     current_user: CurrentUser,
     expense_service: ExpenseServiceDep,
-    bank_id: Optional[List[str]] = Query(None),
-    tag_id: Optional[List[str]] = Query(None),
-    exclude_tag_id: Optional[List[str]] = Query(None),
-    start_date: Optional[str] = Query(None),
-    end_date: Optional[str] = Query(None),
-    keyword: Optional[str] = Query(None),
+    bank_id: list[str] | None = Query(None),
+    tag_id: list[str] | None = Query(None),
+    exclude_tag_id: list[str] | None = Query(None),
+    start_date: str | None = Query(None),
+    end_date: str | None = Query(None),
+    keyword: str | None = Query(None),
 ):
     """Spend aggregated by bank, by tag, and by calendar day - for the Analytics charts.
 
@@ -73,9 +78,7 @@ async def get_analytics_overview(
 
 
 @router.post("/create", status_code=201)
-async def create_expense(
-    expense_data: ExpenseCreate, current_user: CurrentUser, expense_service: ExpenseServiceDep
-):
+async def create_expense(expense_data: ExpenseCreate, current_user: CurrentUser, expense_service: ExpenseServiceDep):
     """Create a new expense with entries."""
     try:
         expense = await expense_service.create_expense(current_user.id, expense_data)
@@ -91,7 +94,7 @@ async def create_expense(
 
 @router.post("/create-bulk", status_code=201)
 async def create_bulk_expenses(
-    expenses_data: List[ExpenseCreate], current_user: CurrentUser, expense_service: ExpenseServiceDep
+    expenses_data: list[ExpenseCreate], current_user: CurrentUser, expense_service: ExpenseServiceDep
 ):
     """Create multiple expenses at once."""
     try:
@@ -117,16 +120,12 @@ async def add_expense_entry(
 ):
     """Add new entries to an existing expense."""
     if not id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Please enter the expense ID to udpate"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Please enter the expense ID to udpate")
 
     result = await expense_service.add_expense_entries(current_user.id, id, entries.entries)
 
     if not result:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Expense not found for provided ID"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Expense not found for provided ID")
 
     return {"success": "Added expense successfully"}
 
@@ -137,14 +136,10 @@ async def update_expense_entry(
 ):
     """Update a specific expense entry."""
     if not entry_data.expense_id or not entry_data.entry_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Please provide expense_id and entry_id"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Please provide expense_id and entry_id")
 
     if not entry_data.updated_description and not entry_data.entry_tags:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Please provide the tags or description"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Please provide the tags or description")
 
     result = await expense_service.update_expense_entry(current_user.id, entry_data)
 
@@ -171,9 +166,7 @@ async def delete_expense_entry(
     deleted = await expense_service.delete_expense_entry(current_user.id, id, ee_id)
 
     if not deleted:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Expense not found for provided ID"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Expense not found for provided ID")
 
     return {"success": "Deleted expense entry successfully"}
 
@@ -186,9 +179,7 @@ async def delete_expense(
 ):
     """Delete an entire expense."""
     if not id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Please provide the Expense ID"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Please provide the Expense ID")
 
     deleted = await expense_service.delete_expense(current_user.id, id)
 

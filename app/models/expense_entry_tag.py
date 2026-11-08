@@ -1,13 +1,13 @@
 import uuid
 from datetime import datetime
-from typing import Optional
+
 from pydantic import BaseModel, Field, field_validator
 
 
 class ExpenseEntryTagModel(BaseModel):
     """Expense entry tag DB model."""
 
-    id: Optional[str] = Field(default=None, alias="_id")
+    id: str | None = Field(default=None, alias="_id")
     user_id: str
     name: str = Field(..., max_length=50)
     created_at: datetime = Field(default_factory=datetime.utcnow)

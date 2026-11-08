@@ -21,7 +21,6 @@ the app may ever hard-depend on this being available.
 """
 
 import logging
-from typing import Optional
 
 from app.core.config import settings
 

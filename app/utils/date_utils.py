@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-from typing import Optional
 
 # Flask uses this format: "DD/MM/YYYY HH:MM"
 DATE_TIME_FORMAT = "%d/%m/%Y %H:%M"

@@ -1,19 +1,20 @@
 import uuid
 from datetime import datetime
-from typing import List, Optional
+
 from pydantic import BaseModel, Field, field_validator
+
 from app.models.expense_entry import ExpenseEntryModel
 
 
 class ExpenseModel(BaseModel):
     """Expense DB model."""
 
-    id: Optional[str] = Field(default=None, alias="_id")
+    id: str | None = Field(default=None, alias="_id")
     user_id: str
     bank: str
     bank_name: str = ""
     day: str = ""  # Day of week or date string
-    expenses: List[ExpenseEntryModel] = Field(default_factory=list)
+    expenses: list[ExpenseEntryModel] = Field(default_factory=list)
     expense_total: float = 0.0
     remaining_amount_till_now: float = 0.0
     created_at: datetime = Field(default_factory=datetime.utcnow)

@@ -1,13 +1,13 @@
 import uuid
 from datetime import datetime
-from typing import Optional
+
 from pydantic import BaseModel, Field, field_validator
 
 
 class BankModel(BaseModel):
     """Bank DB model."""
 
-    id: Optional[str] = Field(default=None, alias="_id")
+    id: str | None = Field(default=None, alias="_id")
     user_id: str
     name: str = Field(..., max_length=20)
     initial_balance: float = Field(..., gt=0)

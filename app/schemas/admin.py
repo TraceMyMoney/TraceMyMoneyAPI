@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+
 from pydantic import BaseModel, field_validator
 
 from app.services.app_settings_service import SUPPORTED_PROVIDERS
@@ -39,9 +39,9 @@ class AiConfig(BaseModel):
     `model=None` means "use that provider's configured default"."""
 
     provider: str = "groq"
-    model: Optional[str] = None
-    temperature: Optional[float] = None
-    max_tokens: Optional[int] = None
+    model: str | None = None
+    temperature: float | None = None
+    max_tokens: int | None = None
     timeout: int = 20
     max_retries: int = 1
 
@@ -65,8 +65,8 @@ class ProviderKeyStatus(BaseModel):
     the network."""
 
     configured: bool
-    source: Optional[str] = None  # "database" | "env" | None
-    masked: Optional[str] = None  # e.g. "sk-...wxyz"
+    source: str | None = None  # "database" | "env" | None
+    masked: str | None = None  # e.g. "sk-...wxyz"
 
 
 class ProviderKeysStatusResponse(BaseModel):
@@ -99,21 +99,21 @@ class LlmErrorStatus(BaseModel):
     provider: str
     message: str
     at: str
-    quota: Optional[LlmQuotaStatus] = None
+    quota: LlmQuotaStatus | None = None
 
 
 class LlmStatusResponse(BaseModel):
-    last_error: Optional[LlmErrorStatus] = None
+    last_error: LlmErrorStatus | None = None
 
 
 class LlmMetricEntry(BaseModel):
     at: str
     provider: str
-    model: Optional[str] = None
+    model: str | None = None
     input_tokens: int
     output_tokens: int
     total_tokens: int
-    category: Optional[str] = None
+    category: str | None = None
 
 
 class LlmMetricsTotals(BaseModel):

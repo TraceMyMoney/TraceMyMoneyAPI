@@ -1,21 +1,21 @@
-from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
-from app.api.deps import AdminUser, UserServiceDep, DatabaseDep
+
+from app.api.deps import AdminUser, DatabaseDep, UserServiceDep
 from app.schemas.admin import (
-    AdminUserListResponse,
-    AdminUserItem,
     AdminSetChatbotAccess,
-    AdminSetIsAdmin,
     AdminSetDisabled,
+    AdminSetIsAdmin,
+    AdminUserItem,
+    AdminUserListResponse,
     AiConfig,
     FeatureFlags,
-    LlmStatusResponse,
     LlmMetricsResponse,
-    ProviderKeyStatus,
+    LlmStatusResponse,
     ProviderKeysStatusResponse,
+    ProviderKeyStatus,
     SetProviderKey,
 )
-from app.services.app_settings_service import AppSettingsService, SUPPORTED_PROVIDERS
+from app.services.app_settings_service import SUPPORTED_PROVIDERS, AppSettingsService
 
 router = APIRouter()
 
@@ -26,12 +26,10 @@ async def list_users(
     user_service: UserServiceDep,
     page_number: int = Query(1, ge=1),
     per_page: int = Query(5, ge=1, le=100),
-    search: Optional[str] = Query(None),
+    search: str | None = Query(None),
 ):
     """Admin-only: paginated user list for the admin dashboard."""
-    page_users, total = await user_service.list_all_users(
-        page_number=page_number, per_page=per_page, search=search
-    )
+    page_users, total = await user_service.list_all_users(page_number=page_number, per_page=per_page, search=search)
     return AdminUserListResponse(
         users=[AdminUserItem(**u) for u in page_users],
         total=total,
@@ -141,9 +139,7 @@ async def get_provider_keys(admin_user: AdminUser, db: DatabaseDep):
         if db_key:
             statuses[provider] = ProviderKeyStatus(configured=True, source="database", masked=_mask(db_key))
         elif env_fallback.get(provider):
-            statuses[provider] = ProviderKeyStatus(
-                configured=True, source="env", masked=_mask(env_fallback[provider])
-            )
+            statuses[provider] = ProviderKeyStatus(configured=True, source="env", masked=_mask(env_fallback[provider]))
         else:
             statuses[provider] = ProviderKeyStatus(configured=False)
     return ProviderKeysStatusResponse(**statuses)

@@ -6,10 +6,9 @@ reuse elsewhere if a non-chat export is ever added."""
 import csv
 import io
 import os
+from collections import OrderedDict
 from datetime import datetime
 from typing import Literal
-
-from collections import OrderedDict
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -17,7 +16,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 # reportlab's built-in fonts (Helvetica et al.) don't include ₹ (U+20B9) -
 # it rendered as a solid black "tofu" box instead of the rupee sign. DejaVu
@@ -41,7 +40,7 @@ PDF_GROUP_HEADERS = ["Date", "Description", "Amount (₹)"]  # no Bank column - 
 def _group_by_bank(rows: list[ExportRow]) -> "OrderedDict[str, list[ExportRow]]":
     """Preserves each bank's first-appearance order, not alphabetical -
     reads more naturally in a report than an arbitrary sort would."""
-    groups: "OrderedDict[str, list[ExportRow]]" = OrderedDict()
+    groups: OrderedDict[str, list[ExportRow]] = OrderedDict()
     for r in rows:
         groups.setdefault(r["bank"], []).append(r)
     return groups
@@ -132,9 +131,7 @@ def _styled_table(table_data, col_widths, totals: list[tuple[str, float]] | None
     (see _totals_breakdown) rather than one netted "Total" row."""
     n_cols = len(table_data[0])
     date_spans = _merge_date_column(table_data)
-    style = [
-        ("SPAN", (0, start), (0, end)) for start, end in date_spans
-    ] + [
+    style = [("SPAN", (0, start), (0, end)) for start, end in date_spans] + [
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a1f35")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("FONTNAME", (0, 0), (-1, 0), FONT_BOLD),
@@ -233,8 +230,7 @@ def build_pdf_bytes(rows: list[ExportRow], title: str) -> bytes:
             # to one plain table instead (same shape export_expenses
             # always produced before grouping existed).
             table_data = [CSV_HEADERS] + [
-                [r["date"], r["bank"], r["description"], _format_amount(r["amount"], "₹")]
-                for r in bank_rows
+                [r["date"], r["bank"], r["description"], _format_amount(r["amount"], "₹")] for r in bank_rows
             ]
             elements.append(_styled_table(table_data, [28 * mm, 28 * mm, None, 30 * mm], totals=totals))
         elements.append(Spacer(1, 18))

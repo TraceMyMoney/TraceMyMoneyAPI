@@ -1,8 +1,9 @@
 import uuid
-from typing import List, Optional
 from datetime import datetime, timezone
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.db.tables import expense_entry_tags
 from app.models.expense_entry_tag import ExpenseEntryTagModel
 from app.schemas.entry_tag import EntryTagCreate, EntryTagUpdate
@@ -37,7 +38,7 @@ class EntryTagService:
 
         return ExpenseEntryTagModel(**{**values, "_id": str(new_id)})
 
-    async def get_tags(self, user_id: str) -> List[ExpenseEntryTagModel]:
+    async def get_tags(self, user_id: str) -> list[ExpenseEntryTagModel]:
         """Get all tags for a user."""
         result = await self.db.execute(
             select(expense_entry_tags).where(expense_entry_tags.c.user_id == uuid.UUID(user_id))
@@ -45,7 +46,7 @@ class EntryTagService:
         rows = result.mappings().all()
         return [ExpenseEntryTagModel(**{**row, "_id": str(row["id"])}) for row in rows]
 
-    async def get_tag_by_id(self, user_id: str, tag_id: str) -> Optional[ExpenseEntryTagModel]:
+    async def get_tag_by_id(self, user_id: str, tag_id: str) -> ExpenseEntryTagModel | None:
         """Get a specific tag."""
         if not is_valid_id(tag_id):
             return None
@@ -60,9 +61,7 @@ class EntryTagService:
             return ExpenseEntryTagModel(**{**row, "_id": str(row["id"])})
         return None
 
-    async def update_tag(
-        self, user_id: str, tag_id: str, tag_data: EntryTagUpdate
-    ) -> Optional[ExpenseEntryTagModel]:
+    async def update_tag(self, user_id: str, tag_id: str, tag_data: EntryTagUpdate) -> ExpenseEntryTagModel | None:
         """Update a tag."""
         if not is_valid_id(tag_id):
             return None

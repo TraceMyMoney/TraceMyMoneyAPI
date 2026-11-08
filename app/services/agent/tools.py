@@ -25,25 +25,24 @@ nothing is written to the database until that happens. Exceptions:
 """
 
 from datetime import datetime, timezone
-from typing import Optional
 
 from langchain_core.tools import tool
 from langgraph.types import interrupt
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.bank_service import BankService
-from app.services.expense_service import ExpenseService
-from app.services.entry_tag_service import EntryTagService
-from app.services.user_preference_service import UserPreferenceService
 from app.schemas.bank import BankCreate, BankUpdate
+from app.schemas.common import AdvancedSearchParams
+from app.schemas.entry_tag import EntryTagCreate, EntryTagUpdate
 from app.schemas.expense import ExpenseCreate
 from app.schemas.expense_entry import ExpenseEntryCreate, ExpenseEntryUpdate
-from app.schemas.entry_tag import EntryTagCreate, EntryTagUpdate
 from app.schemas.user_preference import UserPreferenceUpdate
-from app.schemas.common import AdvancedSearchParams
+from app.services.bank_service import BankService
+from app.services.entry_tag_service import EntryTagService
+from app.services.expense_service import ExpenseService
+from app.services.user_preference_service import UserPreferenceService
 
 
-def build_tools(user_id: str, db: AsyncSession, export_box: Optional[dict] = None) -> list:
+def build_tools(user_id: str, db: AsyncSession, export_box: dict | None = None) -> list:
     """Build a fresh set of tool instances bound to this one request's
     user_id and DB session via closure. Call this once per chat turn.
 
@@ -62,11 +61,11 @@ def build_tools(user_id: str, db: AsyncSession, export_box: Optional[dict] = Non
     tag_service = EntryTagService(db)
     preference_service = UserPreferenceService(db)
 
-    async def _resolve_bank_id(bank_name: str) -> Optional[str]:
+    async def _resolve_bank_id(bank_name: str) -> str | None:
         banks = await bank_service.get_banks(user_id, name=bank_name)
         return banks[0].id if banks else None
 
-    async def _resolve_tag_id(tag_name: str) -> Optional[str]:
+    async def _resolve_tag_id(tag_name: str) -> str | None:
         tags = await tag_service.get_tags(user_id)
         for t in tags:
             if t.name.lower() == tag_name.lower():
@@ -74,7 +73,7 @@ def build_tools(user_id: str, db: AsyncSession, export_box: Optional[dict] = Non
         return None
 
     async def _add_single_entry(
-        bank_id: str, amount: float, description: str, is_topup: bool, date_str: Optional[str] = None
+        bank_id: str, amount: float, description: str, is_topup: bool, date_str: str | None = None
     ) -> str:
         """Add one entry to the given day's expense for bank_id (today, if
         date_str is None). If that day already has an expense row for this
@@ -101,7 +100,7 @@ def build_tools(user_id: str, db: AsyncSession, export_box: Optional[dict] = Non
         expense = await expense_service.create_expense(user_id, expense_data)
         return expense.id
 
-    def _parse_optional_date(date_str: Optional[str]) -> tuple[Optional[str], Optional[str]]:
+    def _parse_optional_date(date_str: str | None) -> tuple[str | None, str | None]:
         """Validates an optional DD/MM/YYYY date string the LLM supplied.
         Returns (normalized_date_str_or_None, error_message_or_None) - on
         error, the caller should return the error message as the tool
@@ -123,8 +122,7 @@ def build_tools(user_id: str, db: AsyncSession, export_box: Optional[dict] = Non
         if not banks:
             return "No bank accounts found."
         return "\n".join(
-            f"- {b.name}: current balance ₹{b.current_balance:.2f}, "
-            f"total disbursed ₹{b.total_disbursed_till_now:.2f}"
+            f"- {b.name}: current balance ₹{b.current_balance:.2f}, total disbursed ₹{b.total_disbursed_till_now:.2f}"
             for b in banks
         )
 
@@ -137,9 +135,7 @@ def build_tools(user_id: str, db: AsyncSession, export_box: Optional[dict] = Non
         return "\n".join(f"- {t.name}" for t in tags)
 
     @tool
-    async def list_recent_expenses(
-        bank_name: Optional[str] = None, limit: int = 10
-    ) -> str:
+    async def list_recent_expenses(bank_name: str | None = None, limit: int = 10) -> str:
         """List the user's most recent expenses, optionally filtered to one
         bank account by name. Returns each expense's id (needed to delete
         it later - call this before delete_expense to find the right id),
@@ -150,21 +146,15 @@ def build_tools(user_id: str, db: AsyncSession, export_box: Optional[dict] = Non
             if bank_id is None:
                 return f"No bank account named '{bank_name}' found. Try list_banks."
 
-        params = AdvancedSearchParams(
-            bank_id=bank_id, page_number=1, per_page=min(max(limit, 1), 20)
-        )
-        expenses, total, non_topup, topup = await expense_service.get_expenses(
-            user_id, params
-        )
+        params = AdvancedSearchParams(bank_id=bank_id, page_number=1, per_page=min(max(limit, 1), 20))
+        expenses, total, non_topup, topup = await expense_service.get_expenses(user_id, params)
         if not expenses:
             return "No expenses found."
 
         lines = [f"Showing {len(expenses)} of {total} total expenses:"]
         for e in expenses:
             date_str = e["created_at"].strftime("%d %b %Y")
-            entries_desc = ", ".join(
-                f"{en['description']} (₹{en['amount']:.2f})" for en in e["expenses"]
-            )
+            entries_desc = ", ".join(f"{en['description']} (₹{en['amount']:.2f})" for en in e["expenses"])
             lines.append(
                 f"- id={e['id']} | {date_str} | {e['bank_name']} | "
                 f"total ₹{e['expense_total']:.2f} | entries: {entries_desc}"
@@ -172,7 +162,7 @@ def build_tools(user_id: str, db: AsyncSession, export_box: Optional[dict] = Non
         return "\n".join(lines)
 
     @tool
-    async def spending_summary(bank_name: Optional[str] = None) -> str:
+    async def spending_summary(bank_name: str | None = None) -> str:
         """Get total spending grouped by tag - use this for 'how much did I
         spend on X' style questions. Optionally filtered to one bank
         account by name."""
@@ -185,20 +175,17 @@ def build_tools(user_id: str, db: AsyncSession, export_box: Optional[dict] = Non
         data = await expense_service.get_aggregated_data(user_id, bank_id)
         if not data:
             return "No tagged spending data found."
-        return "\n".join(
-            f"- {v['tag_name']}: ₹{v['tags_wise_summation']:.2f}"
-            for v in data.values()
-        )
+        return "\n".join(f"- {v['tag_name']}: ₹{v['tags_wise_summation']:.2f}" for v in data.values())
 
     @tool
     async def search_expenses(
-        keyword: Optional[str] = None,
-        tag_name: Optional[str] = None,
-        bank_name: Optional[str] = None,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
-        min_amount: Optional[float] = None,
-        max_amount: Optional[float] = None,
+        keyword: str | None = None,
+        tag_name: str | None = None,
+        bank_name: str | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        min_amount: float | None = None,
+        max_amount: float | None = None,
         limit: int = 20,
     ) -> str:
         """Search the user's expenses with any combination of filters: a
@@ -253,12 +240,8 @@ def build_tools(user_id: str, db: AsyncSession, export_box: Optional[dict] = Non
             if not matching_entries:
                 continue
             date_str = e["created_at"].strftime("%d %b %Y")
-            entries_desc = ", ".join(
-                f"{en['description']} (₹{en['amount']:.2f})" for en in matching_entries
-            )
-            lines.append(
-                f"- id={e['id']} | {date_str} | {e['bank_name']} | entries: {entries_desc}"
-            )
+            entries_desc = ", ".join(f"{en['description']} (₹{en['amount']:.2f})" for en in matching_entries)
+            lines.append(f"- id={e['id']} | {date_str} | {e['bank_name']} | entries: {entries_desc}")
             shown += 1
         if shown == 0:
             return "No matching expenses found."
@@ -266,14 +249,14 @@ def build_tools(user_id: str, db: AsyncSession, export_box: Optional[dict] = Non
 
     @tool
     async def export_expenses(
-        keyword: Optional[str] = None,
-        tag_name: Optional[str] = None,
-        bank_name: Optional[str] = None,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
-        min_amount: Optional[float] = None,
-        max_amount: Optional[float] = None,
-        top_n: Optional[int] = None,
+        keyword: str | None = None,
+        tag_name: str | None = None,
+        bank_name: str | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        min_amount: float | None = None,
+        max_amount: float | None = None,
+        top_n: int | None = None,
         format: str = "pdf",
     ) -> str:
         """Export the user's expenses as a real downloadable file - use
@@ -356,8 +339,9 @@ def build_tools(user_id: str, db: AsyncSession, export_box: Optional[dict] = Non
             rows.sort(key=lambda r: _datetime.strptime(r["date"], "%d/%m/%Y"), reverse=True)
             rows = rows[:top_n]
 
-        from app.services.agent.export import build_export
         import base64
+
+        from app.services.agent.export import build_export
 
         title_bits = [b for b in [tag_name, bank_name, keyword] if b]
         title_bits_str = ", ".join(title_bits)
@@ -372,10 +356,7 @@ def build_tools(user_id: str, db: AsyncSession, export_box: Optional[dict] = Non
             export_box["mime_type"] = mime_type
             export_box["content_b64"] = base64.b64encode(content).decode("ascii")
 
-        return (
-            f"Exported {len(rows)} of {matched_count} matching entries "
-            f"as {filename} - ready to download."
-        )
+        return f"Exported {len(rows)} of {matched_count} matching entries as {filename} - ready to download."
 
     @tool
     async def create_expense(
@@ -383,7 +364,7 @@ def build_tools(user_id: str, db: AsyncSession, export_box: Optional[dict] = Non
         amount: float,
         description: str,
         is_topup: bool = False,
-        date: Optional[str] = None,
+        date: str | None = None,
     ) -> str:
         """Propose adding a new expense (or a topup/credit if is_topup is
         True) to a bank account. date is optional, as DD/MM/YYYY - omit it
@@ -420,9 +401,7 @@ def build_tools(user_id: str, db: AsyncSession, export_box: Optional[dict] = Non
             return "Cancelled - the user did not approve this action."
 
         try:
-            expense_id = await _add_single_entry(
-                bank_id, amount, description, is_topup, normalized_date
-            )
+            expense_id = await _add_single_entry(bank_id, amount, description, is_topup, normalized_date)
         except ValueError as e:
             return f"Failed: {e}"
         return f"Added successfully (expense id={expense_id})."
@@ -433,7 +412,7 @@ def build_tools(user_id: str, db: AsyncSession, export_box: Optional[dict] = Non
         to_bank: str,
         amount: float,
         description: str = "Transfer",
-        date: Optional[str] = None,
+        date: str | None = None,
     ) -> str:
         """Propose transferring money from one of the user's bank accounts to
         another - use this instead of two separate create_expense calls
@@ -461,8 +440,7 @@ def build_tools(user_id: str, db: AsyncSession, export_box: Optional[dict] = Non
                 "tool": "transfer_money",
                 "summary": (
                     f"Transfer ₹{abs(amount):.2f} ({description}) "
-                    f"from {from_bank} to {to_bank}"
-                    + (f" on {normalized_date}" if normalized_date else "")
+                    f"from {from_bank} to {to_bank}" + (f" on {normalized_date}" if normalized_date else "")
                 ),
                 "args": {
                     "from_bank": from_bank,
@@ -477,16 +455,12 @@ def build_tools(user_id: str, db: AsyncSession, export_box: Optional[dict] = Non
             return "Cancelled - the user did not approve this action."
 
         try:
-            debit_expense_id = await _add_single_entry(
-                from_id, amount, description, False, normalized_date
-            )
+            debit_expense_id = await _add_single_entry(from_id, amount, description, False, normalized_date)
         except ValueError as e:
             return f"Failed before any money moved: {e}"
 
         try:
-            credit_expense_id = await _add_single_entry(
-                to_id, amount, description, True, normalized_date
-            )
+            credit_expense_id = await _add_single_entry(to_id, amount, description, True, normalized_date)
         except ValueError as e:
             return (
                 f"Debited ₹{abs(amount):.2f} from {from_bank} (expense id="
@@ -543,8 +517,8 @@ def build_tools(user_id: str, db: AsyncSession, export_box: Optional[dict] = Non
     async def edit_expense_entry(
         expense_id: str,
         entry_id: str,
-        description: Optional[str] = None,
-        tag_names: Optional[list[str]] = None,
+        description: str | None = None,
+        tag_names: list[str] | None = None,
     ) -> str:
         """Propose editing an existing expense entry's description and/or
         tags (the amount itself cannot be changed this way - delete the
@@ -598,9 +572,9 @@ def build_tools(user_id: str, db: AsyncSession, export_box: Optional[dict] = Non
     @tool
     async def bulk_delete_expenses_by_tag(
         tag_name: str,
-        bank_name: Optional[str] = None,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
+        bank_name: str | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
     ) -> str:
         """Propose deleting EVERY expense entry tagged with tag_name in one
         batch, optionally narrowed to one bank account and/or a date range
@@ -648,8 +622,7 @@ def build_tools(user_id: str, db: AsyncSession, export_box: Optional[dict] = Non
                 "summary": (
                     f"Delete {len(to_delete)} expense entr"
                     f"{'y' if len(to_delete) == 1 else 'ies'} tagged '{tag_name}'"
-                    f" (total ₹{abs(total_amount):.2f})"
-                    + (f" on {bank_name}" if bank_name else "")
+                    f" (total ₹{abs(total_amount):.2f})" + (f" on {bank_name}" if bank_name else "")
                 ),
                 "args": {
                     "tag_name": tag_name,
@@ -686,9 +659,7 @@ def build_tools(user_id: str, db: AsyncSession, export_box: Optional[dict] = Non
         try:
             bank = await bank_service.create_bank(
                 user_id,
-                BankCreate(
-                    name=name, initial_balance=initial_balance, current_balance=initial_balance
-                ),
+                BankCreate(name=name, initial_balance=initial_balance, current_balance=initial_balance),
             )
         except Exception as e:
             return f"Failed: {e}"
@@ -733,9 +704,7 @@ def build_tools(user_id: str, db: AsyncSession, export_box: Optional[dict] = Non
         )
         if decision != "approve":
             return "Cancelled - the user did not approve this action."
-        bank = await bank_service.update_bank(
-            user_id, bank_id, BankUpdate(current_balance=new_balance)
-        )
+        bank = await bank_service.update_bank(user_id, bank_id, BankUpdate(current_balance=new_balance))
         return f"{bank.name}'s balance is now ₹{bank.current_balance:.2f}." if bank else "Bank not found."
 
     @tool
@@ -801,18 +770,14 @@ def build_tools(user_id: str, db: AsyncSession, export_box: Optional[dict] = Non
     async def set_dark_mode(enabled: bool) -> str:
         """Turn dark mode on or off. Applies immediately - it's a display
         preference, not a data change, so no confirmation is needed."""
-        await preference_service.update_preferences(
-            user_id, UserPreferenceUpdate(is_dark_mode=enabled)
-        )
+        await preference_service.update_preferences(user_id, UserPreferenceUpdate(is_dark_mode=enabled))
         return f"Dark mode turned {'on' if enabled else 'off'}."
 
     @tool
     async def set_privacy_mode(enabled: bool) -> str:
         """Turn privacy mode (hides amounts on screen) on or off. Applies
         immediately, no confirmation needed."""
-        await preference_service.update_preferences(
-            user_id, UserPreferenceUpdate(privacy_mode_enabled=enabled)
-        )
+        await preference_service.update_preferences(user_id, UserPreferenceUpdate(privacy_mode_enabled=enabled))
         return f"Privacy mode turned {'on' if enabled else 'off'}."
 
     @tool
@@ -820,9 +785,7 @@ def build_tools(user_id: str, db: AsyncSession, export_box: Optional[dict] = Non
         """Change how many expenses are shown per page (1-100). Applies
         immediately, no confirmation needed."""
         page_size = min(max(page_size, 1), 100)
-        await preference_service.update_preferences(
-            user_id, UserPreferenceUpdate(page_size=page_size)
-        )
+        await preference_service.update_preferences(user_id, UserPreferenceUpdate(page_size=page_size))
         return f"Page size set to {page_size}."
 
     @tool

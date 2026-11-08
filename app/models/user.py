@@ -1,13 +1,13 @@
 import uuid
 from datetime import datetime
-from typing import Optional
+
 from pydantic import BaseModel, Field, field_validator
 
 
 class UserModel(BaseModel):
     """User DB model."""
 
-    id: Optional[str] = Field(default=None, alias="_id")
+    id: str | None = Field(default=None, alias="_id")
     username: str = Field(..., min_length=7, max_length=20)
     email: str
     password: str

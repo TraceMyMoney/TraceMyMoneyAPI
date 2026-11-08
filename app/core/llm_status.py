@@ -8,9 +8,8 @@ ongoing."""
 
 import re
 from datetime import datetime, timezone
-from typing import Optional
 
-_last_error: Optional[dict] = None
+_last_error: dict | None = None
 
 # Matches Groq's own rate-limit message shape, e.g.:
 # "...on tokens per day (TPD): Limit 200000, Used 199286, Requested 3409.
@@ -44,5 +43,5 @@ def record_llm_success() -> None:
     _last_error = None
 
 
-def get_last_llm_error() -> Optional[dict]:
+def get_last_llm_error() -> dict | None:
     return _last_error

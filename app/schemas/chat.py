@@ -1,4 +1,3 @@
-from typing import Optional
 from pydantic import BaseModel
 
 
@@ -8,8 +7,8 @@ class ChatRequest(BaseModel):
     what it proposed via `thread_id`)."""
 
     thread_id: str
-    question: Optional[str] = None
-    confirm: Optional[bool] = None
+    question: str | None = None
+    confirm: bool | None = None
 
 
 class ChatRisk(BaseModel):
@@ -41,6 +40,6 @@ class ChatResponse(BaseModel):
     pending_confirmation: bool = False
     # Only ever set alongside pending_confirmation=True, and only when
     # Jev is configured/confident - null otherwise.
-    risk: Optional[ChatRisk] = None
+    risk: ChatRisk | None = None
     # Only set when this turn called export_expenses - see ChatDownload.
-    download: Optional[ChatDownload] = None
+    download: ChatDownload | None = None

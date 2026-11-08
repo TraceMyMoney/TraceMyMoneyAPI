@@ -11,15 +11,14 @@ Tables are truncated after every test for isolation.
 
 import os
 
-import pytest
 import pytest_asyncio
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from main import app
 from app.api.deps import get_db
 from app.db.tables import metadata
+from main import app
 
 TEST_DATABASE_URL = os.environ.get(
     "TEST_DATABASE_URL", "postgresql+asyncpg://smm:smm@localhost:5432/stalk_my_money_test"

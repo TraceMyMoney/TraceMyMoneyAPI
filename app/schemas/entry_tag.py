@@ -1,5 +1,5 @@
-from typing import Optional
 from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 
@@ -18,7 +18,7 @@ class EntryTagCreate(EntryTagBase):
 class EntryTagUpdate(BaseModel):
     """Schema for updating an entry tag."""
 
-    name: Optional[str] = Field(None, max_length=50)
+    name: str | None = Field(None, max_length=50)
 
 
 class EntryTagResponse(EntryTagBase):

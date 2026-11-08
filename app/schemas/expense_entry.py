@@ -1,6 +1,7 @@
-from typing import List, Optional
 from datetime import datetime
+
 from pydantic import BaseModel, Field
+
 from app.models.expense_entry import ExpenseEntryType
 
 
@@ -9,7 +10,7 @@ class ExpenseEntryCreate(BaseModel):
 
     amount: float
     description: str = Field(default="", max_length=200)
-    entry_tags: List[str] = Field(default_factory=list)
+    entry_tags: list[str] = Field(default_factory=list)
     type: ExpenseEntryType = ExpenseEntryType.EXPENSE
 
     model_config = {
@@ -29,8 +30,8 @@ class ExpenseEntryUpdate(BaseModel):
 
     expense_id: str | int
     entry_id: str | int
-    updated_description: Optional[str] = Field(None, max_length=200)
-    entry_tags: Optional[List[str]] = None
+    updated_description: str | None = Field(None, max_length=200)
+    entry_tags: list[str] | None = None
 
     model_config = {
         "json_schema_extra": {
@@ -47,10 +48,10 @@ class ExpenseEntryUpdate(BaseModel):
 class ExpenseEntryResponse(BaseModel):
     """Expense entry schema for API responses."""
 
-    ee_id: str | int 
-    amount: float 
+    ee_id: str | int
+    amount: float
     description: str
-    entry_tags: List[str] | None = None
+    entry_tags: list[str] | None = None
     expense_entry_type: str | None = None
     created_at: datetime
 
@@ -62,4 +63,4 @@ class ExpenseEntryResponse(BaseModel):
 class ExpenseEntryAddRequest(BaseModel):
     """Request to add expense entries to an existing expense."""
 
-    entries: List[ExpenseEntryCreate]
+    entries: list[ExpenseEntryCreate]

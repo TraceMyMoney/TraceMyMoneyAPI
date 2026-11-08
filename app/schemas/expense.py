@@ -1,9 +1,9 @@
 import uuid
-from typing import List, Optional
 from datetime import datetime
-from pydantic import BaseModel, Field, field_serializer, field_validator
-from app.schemas.expense_entry import ExpenseEntryCreate, ExpenseEntryResponse
 
+from pydantic import BaseModel, Field, field_serializer, field_validator
+
+from app.schemas.expense_entry import ExpenseEntryCreate, ExpenseEntryResponse
 
 DATE_TIME_FORMAT = "%d/%m/%Y %H:%M"
 
@@ -17,8 +17,8 @@ class ExpenseBase(BaseModel):
 class ExpenseCreate(ExpenseBase):
     """Schema for creating an expense."""
 
-    expenses: List[ExpenseEntryCreate] = Field(..., min_length=1)
-    created_at: Optional[str] = None  # Optional date string from client
+    expenses: list[ExpenseEntryCreate] = Field(..., min_length=1)
+    created_at: str | None = None  # Optional date string from client
 
     model_config = {
         "json_schema_extra": {
@@ -41,8 +41,8 @@ class ExpenseCreate(ExpenseBase):
 class ExpenseUpdate(BaseModel):
     """Schema for updating an expense."""
 
-    bank_id: Optional[str] = None
-    expenses: Optional[List[ExpenseEntryCreate]] = None
+    bank_id: str | None = None
+    expenses: list[ExpenseEntryCreate] | None = None
 
 
 class ExpenseResponse(BaseModel):
@@ -52,9 +52,9 @@ class ExpenseResponse(BaseModel):
     user_id: str
     bank_name: str
     day: str
-    expenses: List[ExpenseEntryResponse]
+    expenses: list[ExpenseEntryResponse]
     expense_total: float
-    topup_expense_total: Optional[float] = 0.0
+    topup_expense_total: float | None = 0.0
     remaining_amount_till_now: float
     created_at: datetime
 
@@ -78,7 +78,7 @@ class ExpenseResponse(BaseModel):
 class ExpenseListResponse(BaseModel):
     """Response for expense list with totals."""
 
-    expenses: List[ExpenseResponse]
+    expenses: list[ExpenseResponse]
     total_expenses: int
     non_topup_total: float
     topup_total: float

@@ -1,7 +1,5 @@
 """Characterization tests for /register and /login."""
 
-import pytest
-
 
 async def test_register_success(client):
     resp = await client.post(
@@ -27,16 +25,12 @@ async def test_register_duplicate_username(client):
 
 
 async def test_register_short_username_rejected(client):
-    resp = await client.post(
-        "/register", json={"username": "short", "email": "a@b.com", "password": "secretpass123"}
-    )
+    resp = await client.post("/register", json={"username": "short", "email": "a@b.com", "password": "secretpass123"})
     assert resp.status_code == 422
 
 
 async def test_register_short_password_rejected(client):
-    resp = await client.post(
-        "/register", json={"username": "johndoe123", "email": "a@b.com", "password": "short"}
-    )
+    resp = await client.post("/register", json={"username": "johndoe123", "email": "a@b.com", "password": "short"})
     assert resp.status_code == 422
 
 

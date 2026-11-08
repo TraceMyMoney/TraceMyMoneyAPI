@@ -1,8 +1,9 @@
 import uuid
-from typing import List, Optional
 from datetime import datetime, timezone
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.db.tables import banks
 from app.models.bank import BankModel
 from app.schemas.bank import BankCreate, BankUpdate
@@ -42,9 +43,7 @@ class BankService:
 
         return BankModel(**{**values, "_id": str(new_id), "user_id": user_id})
 
-    async def get_banks(
-        self, user_id: str, bank_id: Optional[str] = None, name: Optional[str] = None
-    ) -> List[BankModel]:
+    async def get_banks(self, user_id: str, bank_id: str | None = None, name: str | None = None) -> list[BankModel]:
         """Get banks for a user with optional filters."""
         query = select(banks).where(banks.c.user_id == uuid.UUID(user_id))
 
@@ -59,7 +58,7 @@ class BankService:
 
         return [BankModel(**{**row, "_id": str(row["id"]), "user_id": str(row["user_id"])}) for row in rows]
 
-    async def get_bank_by_id(self, user_id: str, bank_id: str) -> Optional[BankModel]:
+    async def get_bank_by_id(self, user_id: str, bank_id: str) -> BankModel | None:
         """Get a specific bank."""
         if not is_valid_id(bank_id):
             return None
@@ -72,7 +71,7 @@ class BankService:
             return BankModel(**{**row, "_id": str(row["id"]), "user_id": str(row["user_id"])})
         return None
 
-    async def update_bank(self, user_id: str, bank_id: str, bank_data: BankUpdate) -> Optional[BankModel]:
+    async def update_bank(self, user_id: str, bank_id: str, bank_data: BankUpdate) -> BankModel | None:
         """Update a bank."""
         if not is_valid_id(bank_id):
             return None
@@ -113,7 +112,7 @@ class BankService:
 
     async def update_bank_balance(
         self, user_id: str, bank_id: str, amount_change: float, disbursed_change: float
-    ) -> Optional[BankModel]:
+    ) -> BankModel | None:
         """Update bank balance and total disbursed."""
         if not is_valid_id(bank_id):
             return None

@@ -6,7 +6,6 @@ of record (use the provider's own dashboard/invoices for that)."""
 
 from collections import deque
 from datetime import datetime, timezone
-from typing import Optional
 
 # Capped so this can never grow unbounded - old entries just age out.
 # Still large enough to cover a very busy day's worth of chat turns for
@@ -23,10 +22,10 @@ _lifetime = {"requests": 0, "input_tokens": 0, "output_tokens": 0, "total_tokens
 
 def record_request(
     provider: str,
-    model: Optional[str],
+    model: str | None,
     input_tokens: int,
     output_tokens: int,
-    category: Optional[str] = None,
+    category: str | None = None,
 ) -> None:
     """Call once per completed chat turn that actually hit the LLM (skip
     this for fast-path/cached responses that never called it at all -

@@ -7,14 +7,13 @@ normal, expected case and fall back to today's existing behavior.
 """
 
 import logging
-from typing import Optional
 
 from app.core.jev import get_classifier
 
 logger = logging.getLogger(__name__)
 
 
-async def suggest_tag(description: str, tag_names: list[str]) -> Optional[dict]:
+async def suggest_tag(description: str, tag_names: list[str]) -> dict | None:
     """Suggest which of the user's existing tags best fits a new expense
     description. Returns {"tag_name": str, "confidence": float} or None."""
     classifier = get_classifier()
@@ -62,7 +61,7 @@ CHAT_CATEGORIES = {
 CHAT_CATEGORY_CONFIDENCE_FLOOR = 0.6
 
 
-async def classify_chat_category(question: str) -> Optional[str]:
+async def classify_chat_category(question: str) -> str | None:
     """Classify a user's chat message into one of CHAT_CATEGORIES, to let
     the caller load a smaller tool subset for this turn (cuts token
     overhead - see PLAN.md/session notes on the rate-limit issues this is
@@ -160,7 +159,7 @@ _FAST_PATH_BLOCKED_WORDS = (
 )
 
 
-async def classify_fast_path(question: str) -> Optional[str]:
+async def classify_fast_path(question: str) -> str | None:
     """Classify whether a chat message is one of the narrow _FAST_PATH_ACTIONS
     with high enough confidence to answer without the main LLM at all.
     Returns the action name, or None (treat as "not a fast path, use the
@@ -199,7 +198,7 @@ async def classify_fast_path(question: str) -> Optional[str]:
         return None
 
 
-async def score_write_risk(summary: str) -> Optional[dict]:
+async def score_write_risk(summary: str) -> dict | None:
     """Score how risky/unusual a proposed write action looks, to show a
     warning badge on its confirmation bubble. Returns
     {"flagged": bool, "probability": float} (probability of "risky") or

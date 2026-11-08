@@ -1,10 +1,12 @@
 from datetime import timedelta
+
 from fastapi import APIRouter, HTTPException, status
+
 from app.api.deps import UserServiceDep
-from app.schemas.token import Token, LoginRequest, RefreshRequest
-from app.schemas.user import UserCreate
-from app.core.security import create_access_token, create_refresh_token, decode_refresh_token
 from app.core.config import settings
+from app.core.security import create_access_token, create_refresh_token, decode_refresh_token
+from app.schemas.token import LoginRequest, RefreshRequest, Token
+from app.schemas.user import UserCreate
 
 router = APIRouter()
 

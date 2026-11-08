@@ -1,7 +1,7 @@
 import json
-from pydantic_settings import BaseSettings
-from typing import List
 from os import environ
+
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -15,9 +15,7 @@ class Settings(BaseSettings):
     MONGODB_DB_NAME: str = environ.get("MONGODB_DB_NAME", "trackmoney_api")
 
     # PostgreSQL (migration target; see PLAN.md)
-    DATABASE_URL: str = environ.get(
-        "DATABASE_URL", "postgresql+asyncpg://smm:smm@localhost:5432/stalk_my_money"
-    )
+    DATABASE_URL: str = environ.get("DATABASE_URL", "postgresql+asyncpg://smm:smm@localhost:5432/stalk_my_money")
 
     # Security
     SECRET_KEY: str = environ.get("SECRET_KEY", "this_is_secret_key")
@@ -26,7 +24,7 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = environ.get("REFRESH_TOKEN_EXPIRE_DAYS", 7)
 
     # CORS
-    BACKEND_CORS_ORIGINS: List[str] = environ.get(
+    BACKEND_CORS_ORIGINS: list[str] = environ.get(
         "BACKEND_CORS_ORIGINS",
         ["http://localhost:5173", "http://127.0.0.1:5173", "https://app.stalk-my-money.in"],
     )
@@ -35,6 +33,10 @@ class Settings(BaseSettings):
     CELERY_BROKER_URL: str = environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
     CELERY_RESULT_BACKEND: str = environ.get("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
     GROQ_API_KEY: str = environ.get("GROQ_API_KEY", "test_api_key")
+
+    # Read incoming bank SMS with the admin-configured chat model (falling back
+    # to the fixed patterns if it is unavailable). Set to "false" to turn off.
+    SMS_AI_PARSING: bool = environ.get("SMS_AI_PARSING", "true").lower() not in ("0", "false", "no")
     GROQ_MODEL_NAME: str = environ.get("GROQ_MODEL_NAME", "test_model_name")
 
     # Optional: other chat-LLM providers an admin can switch to from the
@@ -64,9 +66,7 @@ class Settings(BaseSettings):
             try:
                 self.BACKEND_CORS_ORIGINS = json.loads(self.BACKEND_CORS_ORIGINS)
             except json.JSONDecodeError:
-                self.BACKEND_CORS_ORIGINS = [
-                    origin.strip() for origin in self.BACKEND_CORS_ORIGINS.split(",")
-                ]
+                self.BACKEND_CORS_ORIGINS = [origin.strip() for origin in self.BACKEND_CORS_ORIGINS.split(",")]
 
 
 settings = Settings()

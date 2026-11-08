@@ -12,6 +12,7 @@ from app.db.tables import banks, ingest_tokens, pending_transactions
 from app.schemas.expense import ExpenseCreate
 from app.schemas.expense_entry import ExpenseEntryCreate
 from app.services.expense_service import ExpenseService
+from app.services.sms_ai import extract_with_ai
 from app.services.sms_parser import match_bank, parse_sms
 
 TOKEN_PREFIX = "smm_"
@@ -109,7 +110,15 @@ class IngestService:
 
     # ── webhook ──────────────────────────────────────────────────────────
     async def ingest_sms(self, user_id: str, text: str, received_at: str | None) -> dict:
-        parsed = parse_sms(text)
+        parsed_by = "ai"
+        verdict = await extract_with_ai(self.db, text, _parse_received_at(received_at).date().isoformat())
+        if verdict is not None:
+            parsed = verdict.parsed
+        else:
+            # AI unavailable (no key, rate limit, timeout) or its answer didn't
+            # check out: fall back to the fixed patterns.
+            parsed_by = "rules"
+            parsed = parse_sms(text)
         if parsed is None:
             return {"status": "ignored", "reason": "Not a debit or credit transaction message"}
 
@@ -156,7 +165,7 @@ class IngestService:
             .mappings()
             .one()
         )
-        return {"status": "stored", "transaction": _serialize(row)}
+        return {"status": "stored", "parsed_by": parsed_by, "transaction": _serialize(row)}
 
     # ── inbox ────────────────────────────────────────────────────────────
     async def list_pending(self, user_id: str, status: str = "pending") -> list[dict]:

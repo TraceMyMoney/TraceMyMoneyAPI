@@ -34,16 +34,16 @@ from langgraph.types import Command
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.llm import get_llm
+from app.schemas.user_preference import UserPreferenceUpdate
 from app.services.agent.tools import build_tools
 from app.services.bank_service import BankService
 from app.services.entry_tag_service import EntryTagService
-from app.services.user_preference_service import UserPreferenceService
-from app.schemas.user_preference import UserPreferenceUpdate
 from app.services.jev_insights import (
     classify_chat_category,
     classify_fast_path,
     score_write_risk,
 )
+from app.services.user_preference_service import UserPreferenceService
 
 logger = logging.getLogger(__name__)
 
@@ -219,7 +219,7 @@ def _record_turn_token_usage(prior_message_count: int, result: dict, category: s
     subsequent turn. Slicing off everything before `prior_message_count`
     (the length captured right before this turn's ainvoke call) is what
     isolates just the new messages."""
-    from app.core.llm import current_provider, current_model
+    from app.core.llm import current_model, current_provider
     from app.core.llm_metrics import record_request
 
     new_messages = result.get("messages", [])[prior_message_count:]
@@ -289,9 +289,7 @@ class AgentChatService:
             allowed = _ALWAYS_INCLUDED_TOOLS | _TOOL_CATEGORIES[tool_category]
             tools = [t for t in tools if t.name in allowed]
         llm = await get_llm(self.db)
-        return create_agent(
-            llm, tools, system_prompt=_system_prompt(), checkpointer=_checkpointer
-        )
+        return create_agent(llm, tools, system_prompt=_system_prompt(), checkpointer=_checkpointer)
 
     async def _try_fast_path(self, user_id: str, question: str) -> dict | None:
         """Handles a small set of simple, parameter-free commands (display
@@ -323,9 +321,7 @@ class AgentChatService:
                 await pref_service.update_preferences(user_id, UserPreferenceUpdate(is_dark_mode=is_on))
                 answer = f"Dark mode turned {'on' if is_on else 'off'}."
             else:
-                await pref_service.update_preferences(
-                    user_id, UserPreferenceUpdate(privacy_mode_enabled=is_on)
-                )
+                await pref_service.update_preferences(user_id, UserPreferenceUpdate(privacy_mode_enabled=is_on))
                 answer = f"Privacy mode turned {'on' if is_on else 'off'}."
             return {"answer": answer, "pending_confirmation": False, "risk": None}
 
@@ -372,9 +368,7 @@ class AgentChatService:
         prior_state = await graph.aget_state(config)
         prior_message_count = len(prior_state.values.get("messages", [])) if prior_state.values else 0
         try:
-            result = await graph.ainvoke(
-                {"messages": [("user", question)]}, config=config
-            )
+            result = await graph.ainvoke({"messages": [("user", question)]}, config=config)
         except Exception as e:
             logger.exception("Agent chat ask() failed")
             return {"answer": _friendly_error(e), "pending_confirmation": False, "risk": None}
@@ -393,9 +387,7 @@ class AgentChatService:
         prior_state = await graph.aget_state(config)
         prior_message_count = len(prior_state.values.get("messages", [])) if prior_state.values else 0
         try:
-            result = await graph.ainvoke(
-                Command(resume="approve" if approve else "reject"), config=config
-            )
+            result = await graph.ainvoke(Command(resume="approve" if approve else "reject"), config=config)
         except Exception as e:
             logger.exception("Agent chat confirm() failed")
             return {"answer": _friendly_error(e), "pending_confirmation": False, "risk": None}

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, status
+
 from app.api.deps import CurrentUser, DatabaseDep
 from app.schemas.chat import ChatRequest, ChatResponse
 from app.services.agent.agent_service import AgentChatService

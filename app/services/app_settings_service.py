@@ -5,7 +5,6 @@ flags. See app/core/llm.py for how ai_config is consumed."""
 
 import uuid
 from datetime import datetime, timezone
-from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -41,12 +40,12 @@ class AppSettingsService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_raw(self, key: str) -> Optional[dict]:
+    async def get_raw(self, key: str) -> dict | None:
         result = await self.db.execute(select(app_settings).where(app_settings.c.key == key))
         row = result.mappings().first()
         return row["value"] if row else None
 
-    async def set_raw(self, key: str, value: dict, updated_by: Optional[str] = None) -> dict:
+    async def set_raw(self, key: str, value: dict, updated_by: str | None = None) -> dict:
         now = datetime.now(timezone.utc)
         stmt = pg_insert(app_settings).values(
             key=key,
@@ -73,7 +72,7 @@ class AppSettingsService:
         stored = await self.get_raw(AI_CONFIG_KEY) or {}
         return {**DEFAULT_AI_CONFIG, **stored}
 
-    async def set_ai_config(self, config: dict, updated_by: Optional[str] = None) -> dict:
+    async def set_ai_config(self, config: dict, updated_by: str | None = None) -> dict:
         merged = {**DEFAULT_AI_CONFIG, **config}
         await self.set_raw(AI_CONFIG_KEY, merged, updated_by)
         # The LLM client is cached in-process (app/core/llm.py) - without
@@ -88,7 +87,7 @@ class AppSettingsService:
         stored = await self.get_raw(FEATURE_FLAGS_KEY) or {}
         return {**DEFAULT_FEATURE_FLAGS, **stored}
 
-    async def set_feature_flags(self, flags: dict, updated_by: Optional[str] = None) -> dict:
+    async def set_feature_flags(self, flags: dict, updated_by: str | None = None) -> dict:
         merged = {**DEFAULT_FEATURE_FLAGS, **flags}
         await self.set_raw(FEATURE_FLAGS_KEY, merged, updated_by)
         return merged
@@ -100,7 +99,7 @@ class AppSettingsService:
         actually gets back."""
         return await self.get_raw(PROVIDER_KEYS_KEY) or {}
 
-    async def set_provider_key(self, provider: str, api_key: str, updated_by: Optional[str] = None) -> None:
+    async def set_provider_key(self, provider: str, api_key: str, updated_by: str | None = None) -> None:
         """Set (or, with an empty string, clear) one provider's stored API
         key - a partial update, leaving every other provider's key
         untouched, unlike set_ai_config/set_feature_flags which replace

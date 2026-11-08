@@ -2,7 +2,17 @@
 
 import pytest
 
+from app.core.config import settings
+from app.services import ingest_service
+from app.services.sms_ai import AiVerdict, SmsExtraction, _to_parsed
 from app.services.sms_parser import match_bank, parse_sms
+
+
+@pytest.fixture(autouse=True)
+def _no_real_ai(monkeypatch):
+    """Tests never call a real model; the AI path is exercised with a stub."""
+    monkeypatch.setattr(settings, "SMS_AI_PARSING", False)
+
 
 HDFC_SMS = (
     "Sent Rs.40.00\nFrom HDFC Bank A/C *1234\nTo SWIGGY\nOn 06/11/26\nRef 612345678901\nNot You? Call 18002586161"
@@ -135,3 +145,72 @@ async def test_credit_confirms_as_topup_and_reject_removes(client, auth_headers,
     ][0]
     assert exp["topup_expense_total"] == -500.0
     assert (await client.delete(f"/ingest/pending/{debit['id']}", headers=auth_headers)).status_code == 404
+
+
+SBI_SMS = (
+    "Dear UPI user A/C X3690 debited by 20.00 on date 06Nov26 trf to Parking MM Refno 789732819990 "
+    "If not u? call-1800111109 for other services-18001234-SBI"
+)
+
+
+def test_real_sbi_sms_parses_with_rules():
+    p = parse_sms(SBI_SMS)
+    assert (p.amount, p.txn_type, p.merchant, p.account_hint, p.bank_hint) == (
+        20.0,
+        "debit",
+        "Parking MM",
+        "3690",
+        "SBI",
+    )
+
+
+def test_ai_answer_is_rejected_if_amount_is_not_in_the_sms():
+    made_up = SmsExtraction(is_transaction=True, type="debit", amount=999.0, merchant="X")
+    assert _to_parsed(made_up, SBI_SMS) is None
+    ok = SmsExtraction(
+        is_transaction=True,
+        type="debit",
+        amount=20.0,
+        merchant="Parking MM",
+        date="2026-11-06",
+        account_last_digits="X3690",
+        bank="sbi",
+    )
+    p = _to_parsed(ok, SBI_SMS)
+    assert (p.amount, p.account_hint, p.bank_hint, p.txn_date.day) == (20.0, "3690", "SBI", 6)
+
+
+async def test_webhook_uses_ai_result_then_falls_back(client, auth_headers, monkeypatch):
+    token = (await client.post("/ingest/token", headers=auth_headers)).json()["token"]
+    hdr = {"X-Ingest-Token": token}
+
+    async def ai_ok(db, text, received_on):
+        return AiVerdict(
+            parsed=_to_parsed(
+                SmsExtraction(is_transaction=True, type="debit", amount=20.0, merchant="Parking", date="2026-11-06"),
+                text,
+            )
+        )
+
+    monkeypatch.setattr(ingest_service, "extract_with_ai", ai_ok)
+    first = await client.post("/ingest/sms", json={"text": SBI_SMS}, headers=hdr)
+    assert first.status_code == 201
+    assert first.json()["parsed_by"] == "ai" and first.json()["transaction"]["merchant"] == "Parking"
+
+    async def ai_down(db, text, received_on):
+        return None
+
+    monkeypatch.setattr(ingest_service, "extract_with_ai", ai_down)
+    second = await client.post("/ingest/sms", json={"text": SBI_SMS + " retry"}, headers=hdr)
+    assert second.json()["parsed_by"] == "rules" and second.json()["transaction"]["merchant"] == "Parking MM"
+
+
+async def test_ai_saying_not_a_transaction_is_ignored(client, auth_headers, monkeypatch):
+    token = (await client.post("/ingest/token", headers=auth_headers)).json()["token"]
+
+    async def ai_no(db, text, received_on):
+        return AiVerdict(parsed=None)
+
+    monkeypatch.setattr(ingest_service, "extract_with_ai", ai_no)
+    resp = await client.post("/ingest/sms", json={"text": SBI_SMS}, headers={"X-Ingest-Token": token})
+    assert resp.status_code == 200 and resp.json()["status"] == "ignored"

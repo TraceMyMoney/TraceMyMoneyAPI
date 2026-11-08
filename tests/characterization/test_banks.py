@@ -1,7 +1,5 @@
 """Characterization tests for /banks."""
 
-import pytest
-
 
 async def test_create_bank(client, auth_headers):
     resp = await client.post(

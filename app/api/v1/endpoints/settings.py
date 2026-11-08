@@ -5,6 +5,7 @@ app/api/v1/endpoints/admin.py's admin-only read/write access to the full
 settings surface (AI provider config, user management, etc.)."""
 
 from fastapi import APIRouter
+
 from app.api.deps import CurrentUser, DatabaseDep
 from app.schemas.admin import FeatureFlags
 from app.services.app_settings_service import AppSettingsService
