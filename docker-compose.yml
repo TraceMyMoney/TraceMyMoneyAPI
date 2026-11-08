@@ -26,6 +26,29 @@ services:
 #    extra_hosts:
 #     - "host.docker.internal:host-gateway"
 
+  # MCP server for Claude (claude.ai connector). Built on the box like the
+  # API. The service name is smm_mcp (not "mcp") because edge-network is shared
+  # with other projects and a bare "mcp" would clash with obsidian-clone's.
+  smm_mcp:
+    build:
+      context: .
+      dockerfile: mcp_server/Dockerfile
+    image: stalkmymoney_mcp:latest
+    container_name: stalkmymoney_mcp
+    restart: unless-stopped
+    environment:
+      # The API container, over this compose network (not localhost).
+      - SMM_API_BASE_URL=http://trackmoney_api:5000
+      - SMM_MCP_TRANSPORT=http
+      - SMM_MCP_HOST=0.0.0.0
+      - SMM_MCP_PORT=8090
+      - SMM_MCP_PATH=/mcp
+    depends_on:
+      - trackmoney_api
+    networks:
+      - app-network
+      - edge-network
+
 networks:
   app-network:
     driver: bridge

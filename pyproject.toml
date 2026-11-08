@@ -19,11 +19,26 @@ dependencies = [
     "pydantic-settings>=2.13.1",
     "pydantic[email]>=2.12.5",
     "python-jose>=3.5.0",
+    # Form bodies: the OAuth /oauth/token endpoint is form-encoded (RFC 6749).
+    "python-multipart>=0.0.26",
     "reportlab>=5.1.0",
     "sqlalchemy[asyncio]>=2.0",
     "sqlglot>=30.25.0",
     "typesafe-sdk>=0.7.5",
     "uvicorn>=0.44.0",
+]
+
+# MCP server (mcp_server/): a plain HTTP client of this API, installed only in
+# its own image (`uv sync --frozen --extra mcp`). Pinned EXACTLY to the 3.x
+# release obsidian-clone's MCP server runs on: the 2.x line has no "http"
+# transport and its run() rejects host/port (TypeError: run() got an
+# unexpected keyword argument 'host'), and a plain ">=3,<4" lets a rebuild
+# drift. After changing this pin run `uv lock` and commit uv.lock - the
+# Docker build uses --frozen and ignores the pin if the lock disagrees.
+[project.optional-dependencies]
+mcp = [
+    "fastmcp==3.4.0",
+    "httpx>=0.27.0",
 ]
 
 [dependency-groups]
