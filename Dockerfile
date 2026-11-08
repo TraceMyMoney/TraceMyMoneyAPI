@@ -13,6 +13,10 @@ RUN uv sync --no-cache
 COPY ./app ./app
 COPY main.py main.py
 
+# Database migrations: the deploy runs `alembic upgrade head` in this image.
+COPY alembic.ini alembic.ini
+COPY ./alembic ./alembic
+
 # Expose port
 EXPOSE 8000
 
