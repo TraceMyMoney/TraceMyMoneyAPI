@@ -64,7 +64,7 @@ async def test_webhook_requires_valid_token(client, auth_headers):
     assert bad.status_code == 401
 
 
-async def test_sms_lands_in_pending_and_dedupes(client, auth_headers, created_bank):
+async def test_sms_lands_in_pending_and_identical_resends_are_kept(client, auth_headers, created_bank):
     token = await _token(client, auth_headers)
     await client.patch("/ingest/settings", json={"auto_add": False}, headers=auth_headers)
     hdr = {"X-Ingest-Token": token}
@@ -74,14 +74,14 @@ async def test_sms_lands_in_pending_and_dedupes(client, auth_headers, created_ba
     txn = first.json()["transaction"]
     assert (txn["amount"], txn["type"], txn["merchant"], txn["date"]) == (40.0, "debit", "Swiggy", "2026-11-06")
 
-    again = await client.post("/ingest/sms", json={"message": HDFC_SMS}, headers=hdr)  # alias + resend
-    assert again.status_code == 200 and again.json()["status"] == "duplicate"
+    again = await client.post("/ingest/sms", json={"message": HDFC_SMS}, headers=hdr)  # alias + identical resend
+    assert again.status_code == 201 and again.json()["status"] == "stored"  # not skipped
 
     ignored = await client.post("/ingest/sms", json={"text": "123456 is your OTP"}, headers=hdr)
     assert ignored.status_code == 200 and ignored.json()["status"] == "ignored"
 
     pending = (await client.get("/ingest/pending", headers=auth_headers)).json()["transactions"]
-    assert len(pending) == 1
+    assert len(pending) == 2  # both copies of the identical SMS were recorded
 
 
 async def test_sms_naming_no_account_always_waits_in_the_review_list(client, auth_headers, created_bank):
@@ -274,9 +274,11 @@ async def test_auto_add_when_account_is_recognised(client, auth_headers):
     listing = (await client.get("/expenses/", params={"bank_id": sbi["id"]}, headers=auth_headers)).json()
     assert listing["expenses"][0]["expense_total"] == 20.0
     assert not (await client.get("/ingest/pending", headers=auth_headers)).json()["transactions"]
-    # re-sending the same SMS must not add it twice
+    # the same SMS again creates another entry on that day (every SMS creates an expense)
     again = await client.post("/ingest/sms", json={"text": SBI_SMS}, headers=hdr)
-    assert again.json()["status"] == "duplicate"
+    assert again.json()["status"] == "added"
+    listing = (await client.get("/expenses/", params={"bank_id": sbi["id"]}, headers=auth_headers)).json()
+    assert len(listing["expenses"]) == 1 and listing["expenses"][0]["expense_total"] == 40.0
 
 
 async def test_auto_add_off_or_unknown_account_waits_for_review(client, auth_headers):
@@ -327,18 +329,3 @@ async def test_added_sms_follows_the_normal_expense_rules(client, auth_headers):
     pending_id = stored.json()["transaction"]["id"]
     stolen = await client.post(f"/ingest/pending/{pending_id}/confirm", json={"bank_id": sbi["id"]}, headers=other_headers)
     assert stolen.status_code == 400
-
-
-async def test_resending_a_waiting_sms_adds_it_when_auto_add_can_handle_it(client, auth_headers):
-    sbi = await _bank(client, auth_headers, "SBI")
-    hdr = {"X-Ingest-Token": await _token(client, auth_headers)}
-    await client.patch("/ingest/settings", json={"auto_add": False}, headers=auth_headers)
-    assert (await client.post("/ingest/sms", json={"text": SBI_SMS}, headers=hdr)).json()["status"] == "stored"
-
-    await client.patch("/ingest/settings", json={"auto_add": True}, headers=auth_headers)
-    resent = await client.post("/ingest/sms", json={"text": SBI_SMS}, headers=hdr)
-    assert resent.json()["status"] == "added"
-    listing = (await client.get("/expenses/", params={"bank_id": sbi["id"]}, headers=auth_headers)).json()
-    assert listing["expenses"][0]["expense_total"] == 20.0
-    # and a third send is now a plain duplicate
-    assert (await client.post("/ingest/sms", json={"text": SBI_SMS}, headers=hdr)).json()["status"] == "duplicate"

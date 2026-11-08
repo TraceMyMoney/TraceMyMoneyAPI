@@ -162,49 +162,16 @@ class IngestService:
             status="pending",
             dedupe_hash=_text_hash(text),
         )
-        stmt = (
-            pg_insert(pending_transactions)
-            .values(**values)
-            .on_conflict_do_nothing(constraint="uq_pending_transactions_user_hash")
-            .returning(pending_transactions.c.id)
-        )
-        inserted = (await self.db.execute(stmt)).first()
-        await self.db.commit()
+        # Every valid SMS is recorded - identical text is NOT skipped. (Two real
+        # transactions can produce the same message, and the user wants one expense
+        # per SMS.)
         auto_add = (
             await self.db.execute(select(ingest_tokens.c.auto_add).where(ingest_tokens.c.user_id == uid))
         ).scalar()
-
-        if inserted is None:
-            # Already received. If it is still waiting in the review list (it came in
-            # before auto-add existed, or before the account was recognised) and
-            # auto-add can handle it now, add it instead of ignoring the re-send.
-            existing = (
-                (
-                    await self.db.execute(
-                        select(pending_transactions).where(
-                            pending_transactions.c.user_id == uid,
-                            pending_transactions.c.dedupe_hash == values["dedupe_hash"],
-                        )
-                    )
-                )
-                .mappings()
-                .first()
-            )
-            target = (str(existing["bank_id"]) if existing and existing["bank_id"] else None) or bank_id
-            if existing and existing["status"] == "pending" and auto_add and target:
-                try:
-                    added = await self.confirm(user_id, str(existing["id"]), target, None, [], None)
-                    transaction = _serialize(existing)
-                    transaction["status"] = "confirmed"
-                    return {
-                        "status": "added",
-                        "parsed_by": parsed_by,
-                        "expense_id": added["expense_id"],
-                        "transaction": transaction,
-                    }
-                except Exception:
-                    logger.exception("Auto-add of a waiting transaction failed")
-            return {"status": "duplicate", "reason": "This message was already received"}
+        inserted = (
+            await self.db.execute(pending_transactions.insert().values(**values).returning(pending_transactions.c.id))
+        ).first()
+        await self.db.commit()
 
         row = (
             (await self.db.execute(select(pending_transactions).where(pending_transactions.c.id == inserted.id)))

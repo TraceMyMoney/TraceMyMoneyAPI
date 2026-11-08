@@ -12,6 +12,7 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     MetaData,
     Numeric,
@@ -147,7 +148,7 @@ pending_transactions = Table(
     Column("status", String(12), nullable=False, server_default="pending"),  # pending | confirmed | rejected
     Column("dedupe_hash", String(64), nullable=False),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
-    UniqueConstraint("user_id", "dedupe_hash", name="uq_pending_transactions_user_hash"),
+    Index("ix_pending_transactions_user_hash", "user_id", "dedupe_hash"),
 )
 
 user_preferences = Table(

@@ -52,7 +52,7 @@ async def revoke_token(current_user: CurrentUser, ingest: IngestServiceDep):
 async def ingest_sms(payload: IngestSmsRequest, user_id: IngestUser, ingest: IngestServiceDep):
     """Receive a forwarded bank / UPI SMS. Parsed transactions land in the
     pending inbox, not in expenses. Messages that aren't transactions (OTPs,
-    balance alerts, offers) are ignored, and re-sent messages are deduplicated."""
+    balance alerts, offers) are ignored. Identical re-sent messages are NOT skipped."""
     result = await ingest.ingest_sms(user_id, payload.text, payload.received_at)
     # One log line per message so "why was my SMS not added?" can be answered from
     # the server log. Long digit runs (reference and account numbers) are masked.
