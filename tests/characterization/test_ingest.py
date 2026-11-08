@@ -285,3 +285,32 @@ async def test_auto_add_off_or_unknown_account_waits_for_review(client, auth_hea
 async def test_settings_needs_a_token_first(client, auth_headers):
     resp = await client.patch("/ingest/settings", json={"auto_add": False}, headers=auth_headers)
     assert resp.status_code == 404
+
+
+async def test_added_sms_follows_the_normal_expense_rules(client, auth_headers):
+    """Same-day SMS share one row, the balance goes down, other users' banks are refused."""
+    sbi = await _bank(client, auth_headers, "SBI")  # opening balance 1000
+    hdr = {"X-Ingest-Token": await _token(client, auth_headers)}
+    first = "Rs.20.00 spent on your SBI Credit Card at CHAI on 06/11/26 Ref 1"
+    second = "Rs.30.00 spent on your SBI Credit Card at VADA on 06/11/26 Ref 2"
+    refund = "Rs 5.00 credited to SBI A/C XX3690 on 06-11-26 by UPI from SHOP Ref 3"
+    for sms in (first, second, refund):
+        assert (await client.post("/ingest/sms", json={"text": sms}, headers=hdr)).json()["status"] == "added"
+
+    listing = (await client.get("/expenses/", params={"bank_id": sbi["id"]}, headers=auth_headers)).json()
+    assert len(listing["expenses"]) == 1  # one row for the day, not three
+    day = listing["expenses"][0]
+    assert len(day["expenses"]) == 3 and day["expense_total"] == 50.0
+    bank = next(b for b in (await client.get("/banks/", headers=auth_headers)).json()["banks"] if b["id"] == sbi["id"])
+    assert bank["current_balance"] == 1000.0 - 20.0 - 30.0 + 5.0
+
+    other = {"username": "other_person", "email": "o@example.com", "password": "testpass123"}
+    await client.post("/register", json=other)
+    other_login = (await client.post("/login", json={"username": "other_person", "password": "testpass123"})).json()
+    other_headers = {"Authorization": other_login["token"]}
+    ot = (await client.post("/ingest/token", headers=other_headers)).json()["token"]
+    await client.patch("/ingest/settings", json={"auto_add": False}, headers=other_headers)
+    stored = await client.post("/ingest/sms", json={"text": "Rs 9.00 debited from A/C XX1 to X on 06-11-26"}, headers={"X-Ingest-Token": ot})
+    pending_id = stored.json()["transaction"]["id"]
+    stolen = await client.post(f"/ingest/pending/{pending_id}/confirm", json={"bank_id": sbi["id"]}, headers=other_headers)
+    assert stolen.status_code == 400

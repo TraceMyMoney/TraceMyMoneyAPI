@@ -259,6 +259,16 @@ class IngestService:
         target_bank = bank_id or (str(row["bank_id"]) if row["bank_id"] else None)
         if not target_bank:
             raise ValueError("Choose which account this transaction belongs to")
+        try:
+            owned = (
+                await self.db.execute(
+                    select(banks.c.id).where(banks.c.id == uuid.UUID(target_bank), banks.c.user_id == uuid.UUID(user_id))
+                )
+            ).first()
+        except ValueError:
+            owned = None
+        if not owned:
+            raise ValueError("That account was not found")
 
         value = float(amount if amount is not None else row["amount"])
         signed = value if row["txn_type"] == "debit" else -value
