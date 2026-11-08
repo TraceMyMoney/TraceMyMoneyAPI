@@ -22,6 +22,10 @@ from app.services.sms_parser import ParsedSms
 logger = logging.getLogger(__name__)
 
 AI_TIMEOUT_SECONDS = 12  # an iPhone Shortcut is waiting on this response
+# The answer is a handful of fields. Passing this per call keeps the admin's
+# global max-tokens setting (which can exceed a model's limit, and made Groq
+# reject the request) out of the SMS path entirely.
+MAX_OUTPUT_TOKENS = 400
 
 SYSTEM_PROMPT = """You extract ONE bank or UPI transaction from an Indian bank SMS.
 
@@ -109,7 +113,8 @@ async def extract_with_ai(db, text: str, received_on: str) -> AiVerdict | None:
                     [
                         ("system", SYSTEM_PROMPT),
                         ("human", f"Message received on {received_on}:\n{text}"),
-                    ]
+                    ],
+                    max_tokens=MAX_OUTPUT_TOKENS,
                 ),
                 timeout=AI_TIMEOUT_SECONDS,
             )

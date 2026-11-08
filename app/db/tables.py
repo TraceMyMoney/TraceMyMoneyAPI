@@ -122,6 +122,9 @@ ingest_tokens = Table(
     uuid_pk(),
     Column("user_id", UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True),
     Column("token_hash", String(64), nullable=False, unique=True),
+    # Add straight to expenses when the SMS clearly names one of the user's
+    # accounts; otherwise (or when off) it waits in the review list.
+    Column("auto_add", Boolean, nullable=False, server_default="true"),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     Column("last_used_at", DateTime(timezone=True)),
 )

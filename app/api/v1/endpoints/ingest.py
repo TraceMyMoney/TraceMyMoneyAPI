@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query, status
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
 from app.api.deps import CurrentUser, IngestServiceDep, IngestUser
 from app.schemas.ingest import ConfirmPendingRequest, IngestSmsRequest
@@ -21,6 +22,18 @@ async def create_token(current_user: CurrentUser, ingest: IngestServiceDep):
     return {"token": await ingest.create_token(current_user.id)}
 
 
+class AutoAddRequest(BaseModel):
+    auto_add: bool
+
+
+@router.patch("/settings")
+async def update_settings(payload: AutoAddRequest, current_user: CurrentUser, ingest: IngestServiceDep):
+    """Turn auto-add on or off (needs a webhook token to exist)."""
+    if not await ingest.set_auto_add(current_user.id, payload.auto_add):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Create a webhook token first")
+    return {"auto_add": payload.auto_add}
+
+
 @router.delete("/token")
 async def revoke_token(current_user: CurrentUser, ingest: IngestServiceDep):
     if not await ingest.revoke_token(current_user.id):
@@ -36,7 +49,7 @@ async def ingest_sms(payload: IngestSmsRequest, user_id: IngestUser, ingest: Ing
     balance alerts, offers) are ignored, and re-sent messages are deduplicated."""
     result = await ingest.ingest_sms(user_id, payload.text, payload.received_at)
     # 201 only when something new was stored; ignored / duplicate are fine, not errors.
-    return JSONResponse(result, status_code=201 if result["status"] == "stored" else 200)
+    return JSONResponse(result, status_code=201 if result["status"] in ("stored", "added") else 200)
 
 
 # ── Inbox (JWT auth) ────────────────────────────────────────────────────────

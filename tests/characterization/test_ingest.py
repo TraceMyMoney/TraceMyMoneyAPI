@@ -214,3 +214,74 @@ async def test_ai_saying_not_a_transaction_is_ignored(client, auth_headers, monk
     monkeypatch.setattr(ingest_service, "extract_with_ai", ai_no)
     resp = await client.post("/ingest/sms", json={"text": SBI_SMS}, headers={"X-Ingest-Token": token})
     assert resp.status_code == 200 and resp.json()["status"] == "ignored"
+
+
+async def test_ai_call_caps_output_tokens(monkeypatch):
+    """The admin's global max_tokens must not leak into the SMS call."""
+    from app.core import llm as llm_module
+    from app.services import sms_ai
+
+    seen = {}
+
+    class FakeStructured:
+        async def ainvoke(self, messages, **kwargs):
+            seen.update(kwargs)
+            return SmsExtraction(is_transaction=True, type="debit", amount=20.0, merchant="Parking MM")
+
+    class FakeLLM:
+        def with_structured_output(self, schema):
+            return FakeStructured()
+
+    async def fake_get_llm(db):
+        return FakeLLM()
+
+    monkeypatch.setattr(settings, "SMS_AI_PARSING", True)
+    monkeypatch.setattr(llm_module, "get_llm", fake_get_llm)
+    verdict = await sms_ai.extract_with_ai(None, SBI_SMS, "2026-11-06")
+    assert seen == {"max_tokens": sms_ai.MAX_OUTPUT_TOKENS}
+    assert verdict.parsed.amount == 20.0
+
+
+async def _bank(client, auth_headers, name):
+    resp = await client.post(
+        "/banks/create", json={"name": name, "initial_balance": 1000.0, "current_balance": 1000.0}, headers=auth_headers
+    )
+    assert resp.status_code == 200
+    banks = (await client.get("/banks/", headers=auth_headers)).json()["banks"]
+    return next(b for b in banks if b["name"] == name)
+
+
+async def test_auto_add_when_account_is_recognised(client, auth_headers):
+    sbi = await _bank(client, auth_headers, "SBI")
+    hdr = {"X-Ingest-Token": await _token(client, auth_headers)}
+
+    resp = await client.post("/ingest/sms", json={"text": SBI_SMS}, headers=hdr)
+    assert resp.status_code == 201 and resp.json()["status"] == "added"
+
+    listing = (await client.get("/expenses/", params={"bank_id": sbi["id"]}, headers=auth_headers)).json()
+    assert listing["expenses"][0]["expense_total"] == 20.0
+    assert not (await client.get("/ingest/pending", headers=auth_headers)).json()["transactions"]
+    # re-sending the same SMS must not add it twice
+    again = await client.post("/ingest/sms", json={"text": SBI_SMS}, headers=hdr)
+    assert again.json()["status"] == "duplicate"
+
+
+async def test_auto_add_off_or_unknown_account_waits_for_review(client, auth_headers):
+    await _bank(client, auth_headers, "SBI")
+    await _token(client, auth_headers)
+    token = (await client.post("/ingest/token", headers=auth_headers)).json()["token"]
+    hdr = {"X-Ingest-Token": token}
+
+    off = await client.patch("/ingest/settings", json={"auto_add": False}, headers=auth_headers)
+    assert off.status_code == 200
+    assert (await client.get("/ingest/token", headers=auth_headers)).json()["auto_add"] is False
+    assert (await client.post("/ingest/sms", json={"text": SBI_SMS}, headers=hdr)).json()["status"] == "stored"
+
+    await client.patch("/ingest/settings", json={"auto_add": True}, headers=auth_headers)
+    unknown = "Rs 99.00 debited from A/C XX1234 on 06-11-26 to NETFLIX"  # no account name in the text
+    assert (await client.post("/ingest/sms", json={"text": unknown}, headers=hdr)).json()["status"] == "stored"
+
+
+async def test_settings_needs_a_token_first(client, auth_headers):
+    resp = await client.patch("/ingest/settings", json={"auto_add": False}, headers=auth_headers)
+    assert resp.status_code == 404

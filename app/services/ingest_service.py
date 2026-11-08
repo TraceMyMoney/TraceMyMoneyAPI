@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import logging
 import secrets
 import uuid
 from datetime import datetime, timezone
@@ -14,6 +15,8 @@ from app.schemas.expense_entry import ExpenseEntryCreate
 from app.services.expense_service import ExpenseService
 from app.services.sms_ai import extract_with_ai
 from app.services.sms_parser import match_bank, parse_sms
+
+logger = logging.getLogger(__name__)
 
 TOKEN_PREFIX = "smm_"
 
@@ -86,12 +89,20 @@ class IngestService:
             .first()
         )
         if not row:
-            return {"configured": False, "created_at": None, "last_used_at": None}
+            return {"configured": False, "auto_add": True, "created_at": None, "last_used_at": None}
         return {
             "configured": True,
+            "auto_add": row["auto_add"],
             "created_at": row["created_at"].isoformat(),
             "last_used_at": row["last_used_at"].isoformat() if row["last_used_at"] else None,
         }
+
+    async def set_auto_add(self, user_id: str, enabled: bool) -> bool:
+        res = await self.db.execute(
+            update(ingest_tokens).where(ingest_tokens.c.user_id == uuid.UUID(user_id)).values(auto_add=enabled)
+        )
+        await self.db.commit()
+        return res.rowcount > 0
 
     async def user_id_for_token(self, token: str) -> str | None:
         """Resolve a webhook token to its user id and note when it was used."""
@@ -165,7 +176,26 @@ class IngestService:
             .mappings()
             .one()
         )
-        return {"status": "stored", "parsed_by": parsed_by, "transaction": _serialize(row)}
+        transaction = _serialize(row)
+
+        # Auto-add: the SMS clearly names one of the user's accounts, so skip the
+        # review list. Anything unclear (or with the switch off) stays pending.
+        auto_add = (
+            await self.db.execute(select(ingest_tokens.c.auto_add).where(ingest_tokens.c.user_id == uid))
+        ).scalar()
+        if auto_add and bank_id:
+            try:
+                added = await self.confirm(user_id, transaction["id"], None, None, [], None)
+                transaction["status"] = "confirmed"
+                return {
+                    "status": "added",
+                    "parsed_by": parsed_by,
+                    "expense_id": added["expense_id"],
+                    "transaction": transaction,
+                }
+            except Exception:
+                logger.exception("Auto-add failed; leaving the transaction in the review list")
+        return {"status": "stored", "parsed_by": parsed_by, "transaction": transaction}
 
     # ── inbox ────────────────────────────────────────────────────────────
     async def list_pending(self, user_id: str, status: str = "pending") -> list[dict]:

@@ -11,18 +11,18 @@ feature flags - see app/services/app_settings_service.py. Unlike the old
 table, this isn't a singleton; `key` is the primary key and each row is a
 self-contained JSON blob (e.g. `ai_config`, `feature_flags`).
 """
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = 'f6ff3284212e'
-down_revision: Union[str, Sequence[str], None] = '0af3fa190666'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = '0af3fa190666'
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
