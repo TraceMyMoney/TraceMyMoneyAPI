@@ -22,8 +22,9 @@ phrase (a problem statement for a bug). Examples: `BACKEND-BUG-tag-rename-return
 
 After every fix, feature, refactor, doc or config change, end the reply with exactly one line:
 `[BACKEND] - <commit message>` (plain words, present tense, about 10 words, for example
-`[BACKEND] - Add email outbox and background worker`). Never run `git commit` or push unless asked; the user
-commits and pushes themselves. If a task also changed the UI, add a `[FRONTEND] - <commit message>` line.
+`[BACKEND] - Add email outbox and background worker`). **Never `git push`, ever** (pushing to `master` deploys to production). Only run
+`git commit` when the user explicitly asks, and then stage only your own changes by path (never `git add -A`). Otherwise the user
+commits themselves. If a task also changed the UI, add a `[FRONTEND] - <commit message>` line.
 
 ## How to work with the user
 
