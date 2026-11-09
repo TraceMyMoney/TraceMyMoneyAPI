@@ -2,6 +2,36 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Commit messages (every session)
+
+After every fix, feature, refactor, doc or config change, end the reply with exactly one line:
+`[BACKEND] - <commit message>` (plain words, present tense, about 10 words, for example
+`[BACKEND] - Add email outbox and background worker`). Never run `git commit` or push unless asked; the user
+commits and pushes themselves. If a task also changed the UI, add a `[FRONTEND] - <commit message>` line.
+
+## How to work with the user
+
+- "Just talk", "no code" or "explain": answer only. Do not change any files.
+- Design or "craft" request: make a visual draft first (an Artifact) and wait for "proceed" before writing any code.
+- Concept questions: explain in simple English with a short example and no code. Keep answers short unless asked for detail.
+- Do not claim certainty you do not have. Say "this is my guess" and how to test it. Say "fixed" or "found it" only when something confirms it.
+- Server (EC2/AWS) problems: give a few commands at a time, say what each one does, and wait for the output before the next step. Warn before anything that deletes data (`down -v`, removing volumes).
+- If a request is unclear, ask one short question instead of guessing.
+
+## Your role and engineering principles
+
+Whenever you work on this backend, act as a senior principal backend engineer who knows production systems, performance and security:
+
+- **Fast by design:** keep endpoints quick. Avoid N+1 queries (load related rows in one query or a join), select only the columns needed, paginate lists, and add or check an index for any new filter, sort or join. Never block the event loop (no sync network or heavy CPU in a request; use the async client or run it in the background).
+- **Slow work goes to the background:** anything that can take more than a moment (email, PDF building, calls to external APIs) is queued (the `email_jobs` outbox pattern), never done inside the request. Make background jobs retryable and safe to run twice (idempotent).
+- **Respect the small server:** production is one small box (about 1 CPU, 1GB RAM, 12GB disk) shared with other services. Watch memory (stream or page big results instead of loading them all), keep dependencies and images lean, and avoid anything that polls or scans in a tight loop.
+- **Data safety first:** services always filter by `user_id`. Use transactions, and keep related writes atomic. Migrations must be safe to run on live data (add columns as nullable or with defaults, backfill, never drop data without saying so), and have a clear downgrade. Run them by hand in production after the deploy.
+- **Security by default:** validate all input at the schema, never trust the client, hash secrets and tokens, use constant-time comparisons, rate-limit abusable endpoints, return the same response where a difference would leak whether an account exists, and never log secrets or personal data.
+- **Right error, right place:** return the correct status code with a clear `detail`, no stack traces to the client, and log enough server-side (with context) to diagnose problems.
+- **Keep the layers clean:** endpoints stay thin, business logic lives in services, schema in `tables.py`. Prefer small, readable changes that follow the existing patterns over new abstractions.
+- **Prove it works:** write or update tests for behavior changes, run `uv run pytest` and `uv run ruff check .`, and say what was not verified.
+- **Say what you chose:** when a trade-off matters (speed vs simplicity, safety vs convenience), state the choice and why in one or two lines.
+
 ## Commands
 
 ```bash
@@ -45,7 +75,7 @@ main.py  →  app/api/v1/endpoints/  →  app/services/  →  app/models/ + app/
 - **`app/api/v1/endpoints/`** — Thin route handlers; delegate all logic to services
 - **`app/services/`** — All business logic; each service class takes a SQLAlchemy `AsyncSession` in `__init__`
 - **`app/db/tables.py`** — SQLAlchemy Core `Table` definitions (the actual DB schema)
-- **`app/db/postgres.py`** — the two engines: `engine`/`AsyncSessionLocal` (main app) and `chat_engine` (restricted read-only role for the Text-to-SQL chat feature)
+- **`app/db/postgres.py`** — the async `engine` and `AsyncSessionLocal` session factory
 - **`app/models/`** — Pydantic models returned by services; mostly DB-shape-agnostic, with a `uuid.UUID → str` coercion on ID fields
 - **`app/schemas/`** — Request/response shapes (separate from DB models)
 - **`app/core/`** — Config, JWT (python-jose, HS256), password hashing (Argon2 via passlib), Groq LLM client
@@ -69,22 +99,21 @@ ExpenseServiceDep   # …etc.
 - **`expense_entries`** — child rows of `expenses` (`ON DELETE CASCADE`); positive `amount` = debit (expense), negative = credit (topup); identified by `ee_id` (`ee_<uuid12>`)
 - **`expense_entry_tags`** / **`expense_entry_tag_links`** — tags and their many-to-many link to entries
 - All primary keys are native `UUID`, generated in Python (`uuid.uuid4()`), not DB-side
-- Row-Level Security is enabled on every table with a `user_id` column (or, for `expense_entries`/`expense_entry_tag_links`, scoped via a subquery on their parent) — but the main app connects as the table owner, which bypasses RLS by default, so **services must still filter by `user_id` explicitly in every query**. RLS is the enforcement backstop for the Text-to-SQL chat role specifically, which is *not* the table owner.
+- Row-Level Security is enabled on every table with a `user_id` column (or, for `expense_entries`/`expense_entry_tag_links`, scoped via a subquery on their parent) — but the main app connects as the table owner, which bypasses RLS by default, so **services must still filter by `user_id` explicitly in every query**. RLS would only protect the read-only role `smm_chat_readonly`, which is not the table owner; that role is a leftover from the old text-to-SQL chat and nothing uses it now.
 
-### Text-to-SQL chat (`app/services/chat/`)
+### Chatbot (`app/services/agent/`)
 
-`/user/chat` turns a natural-language question into a single read-only SQL `SELECT`, with layered guardrails (see PLAN.md Phase 4 for the full rationale): a dedicated `smm_chat_readonly` Postgres role with no write grants and no access at all to `users`; RLS scoping every row to `current_setting('app.user_id')`; `sqlglot` parsing that rejects anything but one `SELECT` against an explicit table allowlist; a `statement_timeout`; and a transaction that's always rolled back regardless of outcome.
+`/user/chat` runs a tool-using agent (`AgentChatService`), not text-to-SQL. Tools (in `tools.py`) include `add_expense`, `export_expenses` (download only) and `email_expenses` (emails a PDF, only when the user explicitly asks for email). An admin enables the chatbot per user; others get a 403. The old text-to-SQL guardrails (`smm_chat_readonly` role, RLS, `sqlglot`) are leftovers; nothing in `app/` uses them now, and new tables still `REVOKE` from that role.
 
 ### LLM
 
-`app/core/llm.py` exposes a module-level `LLM = ChatGroq(...)` singleton. Used only in `app/services/chat/chat_service.py`. Requires `GROQ_API_KEY` and `GROQ_MODEL_NAME` env vars.
+`app/core/llm.py` builds the chat model (Groq by default; admins can switch provider). Used by the agent (`app/services/agent/agent_service.py`), SMS parsing (`app/services/sms_ai.py`) and the admin settings. Requires `GROQ_API_KEY` and `GROQ_MODEL_NAME`.
 
 ## Environment (`.env`)
 
 | Variable | Purpose |
 |---|---|
 | `DATABASE_URL` | Main app's Postgres connection string (`postgresql+asyncpg://...`) |
-| `CHAT_DATABASE_URL` | Restricted read-only role's connection string, for the chat feature |
 | `SECRET_KEY` | JWT signing key |
 | `ALGORITHM` | JWT algorithm (default HS256) |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | Token TTL |
