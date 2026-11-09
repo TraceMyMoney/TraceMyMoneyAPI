@@ -31,7 +31,9 @@ API docs available at `http://localhost:8000/docs` when running locally.
 
 ## Architecture
 
-**This backend was migrated from MongoDB to PostgreSQL.** See `/PLAN.md` at the repo root for the full migration history, every bug found/fixed along the way, and what's still outstanding (the Phase 6 cutover and a from-scratch migration run against real production data). `scripts/migrate_mongo_to_pg.py` is the one-time Mongo→Postgres data migration tool; it stays in the repo until Phase 6 is complete.
+**This backend was migrated from MongoDB to PostgreSQL** and production runs on Postgres. See `/PLAN.md` at the repo root for the migration history and bugs. `scripts/migrate_mongo_to_pg.py` is the one-time Mongo→Postgres tool. Feature plans live in `/.claude/plans/` and reusable how-tos in `/.claude/skills/`; read the relevant ones first (see the root `CLAUDE.md`).
+
+**Email** (`app/services/email/`, `app/services/account_email_service.py`): handlers only INSERT into the `email_jobs` outbox; a worker started in `main.py`'s lifespan (`EMAIL_WORKER_ENABLED`) sends through Mailgun. Tokens are in `email_tokens` (sha256-hashed, single use). Chat tool `email_expenses` queues report PDFs; `export_expenses` only downloads. **MCP/OAuth**: `mcp_server/`, `app/api/oauth.py`, `app/services/oauth_service.py`.
 
 ### Layer flow
 
@@ -89,10 +91,13 @@ ExpenseServiceDep   # …etc.
 | `GROQ_API_KEY` | Groq LLM key |
 | `GROQ_MODEL_NAME` | Model identifier |
 | `BACKEND_CORS_ORIGINS` | JSON array or comma-separated list |
+| `MAILGUN_API_KEY` / `MAILGUN_URI` / `MAILGUN_FROM_ADDR` | Mailgun sending; all empty = console backend (logs the email, sends nothing) |
+| `EMAIL_FROM_NAME` / `EMAIL_WORKER_ENABLED` | Sender display name; turn the background worker off (tests) |
+| `API_BASE_URL` / `FRONTEND_BASE_URL` | Public URLs for email links and the OAuth redirect (set in `docker-compose.yml` in prod; default localhost) |
 | `MONGODB_URL` / `MONGODB_DB_NAME` | Only needed to run `scripts/migrate_mongo_to_pg.py`; unused by the running app otherwise |
 
 ## CI/CD
 
 `.github/workflows/deploy_on_ec2.yml`: every push builds a versioned Docker image (`<branch>_<sha>`); merges to `master` tag as `latest` and SSH-deploy to EC2 via `docker compose up -d`, which reads `env_file: ../env/.env.prod` on the EC2 host. Tests are commented out in CI — run `uv run pytest` locally before pushing to `master`.
 
-**Before the production cutover** (PLAN.md Phase 6), the EC2 host's `../env/.env.prod` needs `DATABASE_URL`/`CHAT_DATABASE_URL` added, and a production Postgres instance needs to exist and have both Alembic migrations applied — this isn't automated by anything in this repo and hasn't been done yet.
+**Migrations are not run by the deploy.** After deploying code that adds a migration, run it by hand on the EC2 box: `docker exec stalkmymoney_api uv run alembic upgrade head` (check with `... alembic current`). Deploying code before its migration makes the API fail with "relation/column does not exist". Production compose runs uvicorn without `--reload`.
