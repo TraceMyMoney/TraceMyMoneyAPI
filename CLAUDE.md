@@ -2,6 +2,22 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Branches (start of every fix or feature)
+
+Before changing any code, create a new branch from an up-to-date `master`:
+
+```bash
+git fetch origin && git switch -c <BRANCH-NAME> origin/master
+```
+
+Name format: `BACKEND-<TYPE>-<short-title>`, where `TYPE` is `BUG` or `FEATURE` and the title is a short lowercase hyphenated
+phrase (a problem statement for a bug). Examples: `BACKEND-BUG-tag-rename-returns-500`,
+`BACKEND-FEATURE-tags-crud`. If the work also touches the UI repo, use the same title there with the `FRONTEND-` prefix.
+
+- If the working tree has uncommitted changes, do not switch silently: tell the user and ask what to do.
+- Creating the branch is expected; committing and pushing are still left to the user (see below).
+- Work that is only docs or config on a branch the user already named: keep using that branch.
+
 ## Commit messages (every session)
 
 After every fix, feature, refactor, doc or config change, end the reply with exactly one line:
@@ -31,6 +47,23 @@ Whenever you work on this backend, act as a senior principal backend engineer wh
 - **Keep the layers clean:** endpoints stay thin, business logic lives in services, schema in `tables.py`. Prefer small, readable changes that follow the existing patterns over new abstractions.
 - **Prove it works:** write or update tests for behavior changes, run `uv run pytest` and `uv run ruff check .`, and say what was not verified.
 - **Say what you chose:** when a trade-off matters (speed vs simplicity, safety vs convenience), state the choice and why in one or two lines.
+
+## Every backend feature must also reach MCP and the chatbot
+
+When you build or change a backend feature (new endpoint, new data, new action), also support it in both of these, in the same feature, not "later":
+
+1. **MCP tool** (for claude.ai): add or update a tool in `mcp_server/server.py` that calls the API through `mcp_server/client.py` with the user's OAuth token.
+   - Let users refer to things by **name**, not ids (resolve names in the tool). Validate inputs (for example dates as `YYYY-MM-DD`).
+   - Write the docstring for Claude: what it does, units and sign conventions (credits are negative), and when NOT to use it. Say clearly if a tool is destructive.
+   - Update the tool list in `mcp_server/README.md`.
+2. **Internal chatbot tool** (for `/user/chat`): add or update a tool in `app/services/agent/tools.py` (inside `build_tools`, and add it to the returned list). If it should always be available, add it to `_ALWAYS_INCLUDED_TOOLS` in `agent_service.py` and mention it in the agent's prompt there.
+   - Actions that change or delete data must go through the agent's confirmation step (the user approves before it runs).
+   - Reuse the existing service methods. Do not copy business logic into the tool.
+
+Rules for both:
+- Both call the same service layer as the REST endpoint, so behavior, validation and `user_id` filtering stay identical.
+- Put both in the SPEC and PLAN as their own steps, and add tests for them (`tests/`).
+- If a feature truly does not make sense as an MCP tool or a chatbot tool (for example admin-only or a webhook), say so in the spec and why, instead of skipping it silently.
 
 ## Commands
 
