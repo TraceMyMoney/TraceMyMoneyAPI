@@ -1,6 +1,6 @@
 # SPEC: Tags CRUD (manage tags in the UI, MCP and chatbot)
 
-Status: SPEC written, waiting for the user's "proceed" (design draft first, no code yet).
+Status: SPEC written and in use; build progress is tracked in `PLAN.md` (same folder). The UI additionally needs an approved design draft before any UI code.
 
 ## 1. What
 

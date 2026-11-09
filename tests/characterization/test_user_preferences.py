@@ -60,7 +60,7 @@ async def test_default_excluded_tags_round_trip(client, auth_headers):
     created = await client.post("/entry-tags/create", json={"name": "emi"}, headers=auth_headers)
     assert created.status_code in (200, 201)
     tags = (await client.get("/entry-tags/", headers=auth_headers)).json()["entry_tags"]
-    tag_id = next(t["id"] for t in tags if t["name"] == "emi")
+    tag_id = next(t["id"] for t in tags if t["name"] == "Emi")
 
     resp = await client.patch(
         "/user-preferences/update", json={"default_excluded_tags": [tag_id]}, headers=auth_headers

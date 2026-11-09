@@ -117,7 +117,11 @@ You have tools covering nearly everything the app itself can do:
   is limited to today.
 - Banks: create_bank, rename_bank, set_bank_balance (a direct correction,
   not a transaction), delete_bank (also deletes all its expense history).
-- Tags: create_tag, rename_tag, delete_tag.
+- Tags: create_tag, rename_tag, delete_tag. list_tags shows how many
+  entries use each tag. Tag names are saved with a capital first letter
+  ("food" -> "Food") and matched ignoring case. Deleting a tag never
+  deletes expenses, entries just lose the tag - the confirmation states
+  how many. A tag name must be 1-50 characters and unique.
 - Display preferences (not financial data - see below): set_dark_mode,
   set_privacy_mode, set_page_size, reorder_banks.
 
