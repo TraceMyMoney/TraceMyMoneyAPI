@@ -29,11 +29,12 @@ from datetime import datetime, timezone
 
 from langchain_core.tools import tool
 from langgraph.types import interrupt
+from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.bank import BankCreate, BankUpdate
 from app.schemas.common import AdvancedSearchParams
-from app.schemas.entry_tag import EntryTagCreate, EntryTagUpdate
+from app.schemas.entry_tag import EntryTagCreate, EntryTagUpdate, normalize_tag_name
 from app.schemas.expense import ExpenseCreate
 from app.schemas.expense_entry import ExpenseEntryCreate, ExpenseEntryUpdate
 from app.schemas.user_preference import UserPreferenceUpdate
@@ -77,11 +78,8 @@ def build_tools(user_id: str, db: AsyncSession, export_box: dict | None = None) 
         return banks[0].id if banks else None
 
     async def _resolve_tag_id(tag_name: str) -> str | None:
-        tags = await tag_service.get_tags(user_id)
-        for t in tags:
-            if t.name.lower() == tag_name.lower():
-                return t.id
-        return None
+        tag = await tag_service.get_tag_by_name(user_id, tag_name)
+        return tag.id if tag else None
 
     async def _add_single_entry(
         bank_id: str, amount: float, description: str, is_topup: bool, date_str: str | None = None
@@ -139,11 +137,13 @@ def build_tools(user_id: str, db: AsyncSession, export_box: dict | None = None) 
 
     @tool
     async def list_tags() -> str:
-        """List all of the user's expense tags."""
+        """List all of the user's expense tags, with how many entries use each."""
         tags = await tag_service.get_tags(user_id)
         if not tags:
             return "No tags found."
-        return "\n".join(f"- {t.name}" for t in tags)
+        return "\n".join(
+            f"- {t.name} ({_entries(t.entry_count)})" if t.entry_count else f"- {t.name} (unused)" for t in tags
+        )
 
     @tool
     async def list_recent_expenses(bank_name: str | None = None, limit: int = 10) -> str:
@@ -754,44 +754,77 @@ def build_tools(user_id: str, db: AsyncSession, export_box: dict | None = None) 
         ok = await bank_service.delete_bank(user_id, bank_id)
         return f"Bank '{bank_name}' deleted." if ok else "Bank not found."
 
+    def _entries(n: int) -> str:
+        return "1 entry" if n == 1 else f"{n} entries"
+
+    def _checked_tag_name(raw: str) -> str | None:
+        """The name as it would be saved (capital first letter, spaces tidied),
+        or None if it is empty or over 50 characters."""
+        name = normalize_tag_name(raw)
+        return name if 1 <= len(name) <= 50 else None
+
     @tool
     async def rename_tag(old_name: str, new_name: str) -> str:
-        """Propose renaming an existing expense tag. This only PROPOSES
-        the action and asks the user to confirm first."""
-        tag_id = await _resolve_tag_id(old_name)
-        if tag_id is None:
+        """Propose renaming an existing expense tag. Entries that use it keep
+        it under the new name; no amounts change. The new name is saved with a
+        capital first letter ("food" becomes "Food") and must be 1-50
+        characters and not already used by another tag. This only PROPOSES the
+        action and asks the user to confirm first."""
+        saved_name = _checked_tag_name(new_name)
+        if saved_name is None:
+            return "A tag name must be 1 to 50 characters. Ask the user for a different name."
+        tag = await tag_service.get_tag_by_name(user_id, old_name)
+        if tag is None:
             return f"No tag named '{old_name}' found. Try list_tags."
+        clash = await tag_service.get_tag_by_name(user_id, saved_name)
+        if clash is not None and clash.id != tag.id:
+            return f"Another tag is already called '{clash.name}'. Ask the user for a different name."
+        used = (
+            f"used by {_entries(tag.entry_count)}, they keep it under the new name"
+            if tag.entry_count
+            else "not used yet"
+        )
         decision = interrupt(
             {
                 "tool": "rename_tag",
-                "summary": f"Rename tag '{old_name}' to '{new_name}'",
+                "summary": f"Rename tag '{tag.name}' to '{saved_name}' ({used})",
                 "args": {"old_name": old_name, "new_name": new_name},
             }
         )
         if decision != "approve":
             return "Cancelled - the user did not approve this action."
-        tag = await tag_service.update_tag(user_id, tag_id, EntryTagUpdate(name=new_name))
-        return f"Tag renamed to '{tag.name}'." if tag else "Tag not found."
+        try:
+            renamed = await tag_service.update_tag(user_id, tag.id, EntryTagUpdate(name=new_name))
+        except (ValueError, ValidationError) as e:
+            return f"Failed: {e}"
+        return f"Tag renamed to '{renamed.name}'." if renamed else "Tag not found."
 
     @tool
     async def delete_tag(name: str) -> str:
-        """Propose deleting an expense tag itself (expenses that used it
-        stay, just untagged). This only PROPOSES the action and asks the
-        user to confirm first."""
-        tag_id = await _resolve_tag_id(name)
-        if tag_id is None:
+        """Propose deleting an expense tag itself. Expenses and entries that
+        used it are NOT deleted (amounts stay), they just lose this tag. The
+        confirmation shows how many entries will lose it. This only PROPOSES
+        the action and asks the user to confirm first."""
+        tag = await tag_service.get_tag_by_name(user_id, name)
+        if tag is None:
             return f"No tag named '{name}' found. Try list_tags."
+        if tag.entry_count:
+            effect = f"used by {_entries(tag.entry_count)}, they will lose this tag (the entries and amounts stay)"
+        else:
+            effect = "not used by any entry"
         decision = interrupt(
             {
                 "tool": "delete_tag",
-                "summary": f"Delete tag '{name}'",
+                "summary": f"Delete tag '{tag.name}' - {effect}",
                 "args": {"name": name},
             }
         )
         if decision != "approve":
             return "Cancelled - the user did not approve this action."
-        ok = await tag_service.delete_tag(user_id, tag_id)
-        return f"Tag '{name}' deleted." if ok else "Tag not found."
+        untagged = await tag_service.delete_tag(user_id, tag.id)
+        if untagged is None:
+            return "Tag not found."
+        return f"Tag '{tag.name}' deleted; {_entries(untagged)} {'no longer has' if untagged == 1 else 'no longer have'} it."
 
     @tool
     async def set_dark_mode(enabled: bool) -> str:
@@ -836,13 +869,20 @@ def build_tools(user_id: str, db: AsyncSession, export_box: dict | None = None) 
 
     @tool
     async def create_tag(name: str) -> str:
-        """Propose creating a new expense tag. This only PROPOSES the
-        action and asks the user to confirm first; it does nothing until
-        they approve."""
+        """Propose creating a new expense tag. It is saved with a capital first
+        letter ("food" becomes "Food"), 1-50 characters, and must not already
+        exist (case does not matter). This only PROPOSES the action and asks
+        the user to confirm first; it does nothing until they approve."""
+        saved_name = _checked_tag_name(name)
+        if saved_name is None:
+            return "A tag name must be 1 to 50 characters. Ask the user for a different name."
+        existing = await tag_service.get_tag_by_name(user_id, saved_name)
+        if existing is not None:
+            return f"A tag called '{existing.name}' already exists."
         decision = interrupt(
             {
                 "tool": "create_tag",
-                "summary": f"Create tag '{name}'",
+                "summary": f"Create tag '{saved_name}'",
                 "args": {"name": name},
             }
         )
@@ -850,7 +890,7 @@ def build_tools(user_id: str, db: AsyncSession, export_box: dict | None = None) 
             return "Cancelled - the user did not approve this action."
         try:
             tag = await tag_service.create_tag(user_id, EntryTagCreate(name=name))
-        except ValueError as e:
+        except (ValueError, ValidationError) as e:
             return f"Failed: {e}"
         return f"Tag '{tag.name}' created."
 

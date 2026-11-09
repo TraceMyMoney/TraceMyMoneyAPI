@@ -94,6 +94,20 @@ async def _resolve_bank(token: str, bank: str) -> dict:
     raise ValueError(f"No account matches {bank!r}. Your accounts: {options}")
 
 
+async def _resolve_tag(token: str, tag: str) -> dict:
+    """Accept a tag id or its name (case-insensitive, extra spaces ignored)."""
+    tags = await _tags(token)
+    for t in tags:
+        if t["id"] == tag:
+            return t
+    wanted = " ".join(tag.split()).lower()
+    named = [t for t in tags if t["name"].strip().lower() == wanted] if wanted else []
+    if len(named) == 1:
+        return named[0]
+    options = ", ".join(t["name"] for t in tags) or "none yet"
+    raise ValueError(f"No tag matches {tag!r}. Your tags: {options}")
+
+
 async def _resolve_tag_ids(token: str, names: list[str] | None, create_missing: bool) -> list[str]:
     """Tag names (or ids) -> tag ids. Unknown names are created when allowed."""
     if not names:
@@ -163,15 +177,67 @@ async def delete_account(account: str, auth: AccessToken = CurrentAccessToken())
 
 @mcp.tool()
 async def list_tags(auth: AccessToken = CurrentAccessToken()) -> list:
-    """Your expense tags (categories such as food, rent, travel)."""
+    """Your expense tags (categories such as food, rent, travel), sorted by
+    name. Each has `entry_count`: how many expense entries use it (0 = unused)."""
     return await _tags(auth.token)
 
 
 @mcp.tool()
 async def create_tag(name: str, auth: AccessToken = CurrentAccessToken()) -> dict:
-    """Create a tag (max 50 characters). Tags are matched by name elsewhere,
-    so this is only needed to create one ahead of time."""
+    """Create a tag (max 50 characters). The first letter is saved in capitals
+    ("food" becomes "Food"); matching by name ignores case. Tags are matched by
+    name elsewhere, so this is only needed to create one ahead of time."""
     return await client.request_json("POST", "/entry-tags/create", token=auth.token, json={"name": name})
+
+
+@mcp.tool()
+async def rename_tag(tag: str, new_name: str, auth: AccessToken = CurrentAccessToken()) -> dict:
+    """Rename a tag. Every entry that uses it keeps it under the new name; no
+    amounts or expenses change. `tag` is the current name (or id). The new name
+    is max 50 characters and is saved with a capital first letter ("food"
+    becomes "Food"). Fails if another of your tags already has that name; to
+    combine two tags, edit the entries instead (`update_entry`)."""
+    cleaned = " ".join(new_name.split())
+    if not cleaned:
+        raise ValueError("The new tag name cannot be empty")
+    if len(cleaned) > 50:
+        raise ValueError(f"A tag name is at most 50 characters (got {len(cleaned)})")
+    found = await _resolve_tag(auth.token, tag)
+    result = await client.request_json("PATCH", f"/entry-tags/{found['id']}", token=auth.token, json={"name": cleaned})
+    return {
+        "renamed_from": found["name"],
+        "renamed_to": result["tag"]["name"],
+        "entries_using_it": result["tag"]["entry_count"],
+    }
+
+
+@mcp.tool()
+async def delete_tag(tag: str, confirm: bool = False, auth: AccessToken = CurrentAccessToken()) -> dict:
+    """DESTRUCTIVE: permanently delete a tag. Entries that use it are NOT
+    deleted (amounts and descriptions stay), they just lose this tag, and it is
+    also removed from your default-excluded tags. Cannot be undone.
+
+    Two steps, always: first call with `confirm=false` (the default). Nothing is
+    deleted; the result says `needs_confirmation` and `entries_affected` (how
+    many entries will lose the tag). Tell the user that number and ask for a
+    clear yes. Only after they say yes, call again with `confirm=true`. Never
+    set `confirm=true` on the first call or without the user's yes. `tag` is the
+    name (or id)."""
+    found = await _resolve_tag(auth.token, tag)
+    if not confirm:
+        return {
+            "deleted": False,
+            "needs_confirmation": True,
+            "tag": found["name"],
+            "entries_affected": found["entry_count"],
+            "message": (
+                f"Tag {found['name']!r} is used by {found['entry_count']} "
+                f"{'entry' if found['entry_count'] == 1 else 'entries'}; they would lose it. "
+                "Ask the user to confirm, then call delete_tag again with confirm=true."
+            ),
+        }
+    result = await client.request_json("DELETE", f"/entry-tags/{found['id']}", token=auth.token)
+    return {"deleted": found["name"], "entries_untagged": result["entries_untagged"]}
 
 
 # ---- reading expenses -------------------------------------------------------

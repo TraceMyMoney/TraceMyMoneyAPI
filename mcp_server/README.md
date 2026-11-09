@@ -10,9 +10,13 @@ sign in to StalkMyMoney when asked, click Authorize. Disconnect any time under
 Profile > Connected apps.
 
 ## Tools
-accounts: `list_accounts`, `create_account`, `delete_account` | tags: `list_tags`, `create_tag`
+accounts: `list_accounts`, `create_account`, `delete_account` | tags: `list_tags` (with usage counts), `create_tag`, `rename_tag`, `delete_tag`
 read: `list_expenses`, `spending_overview` | write: `add_expense`, `update_entry`, `delete_entry`, `delete_expense`
 SMS inbox: `list_pending_sms`, `confirm_pending_sms`, `dismiss_pending_sms` | `whoami`
+
+`delete_tag` is destructive and two-step: without `confirm=true` it deletes nothing and returns how many
+entries would lose the tag; Claude must ask you, then call again with `confirm=true`. Tag names are saved with a
+capital first letter.
 
 `add_expense` takes account/tag **names**, a positive amount and `kind` (debit or credit),
 and follows the app's rule: append to that day's expense if it exists, else create it.

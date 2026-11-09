@@ -11,6 +11,8 @@ class ExpenseEntryTagModel(BaseModel):
     user_id: str
     name: str = Field(..., max_length=50)
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    # How many entries carry this tag. Filled by EntryTagService.get_tags / get_tag_by_id.
+    entry_count: int = 0
 
     @field_validator("id", "user_id", mode="before")
     @classmethod
