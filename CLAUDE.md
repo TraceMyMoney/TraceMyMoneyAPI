@@ -34,6 +34,10 @@ commits and pushes themselves. If a task also changed the UI, add a `[FRONTEND] 
 - Server (EC2/AWS) problems: give a few commands at a time, say what each one does, and wait for the output before the next step. Warn before anything that deletes data (`down -v`, removing volumes).
 - If a request is unclear, ask one short question instead of guessing.
 
+## Where specs, plans and skills go
+
+For backend-heavy work, keep the `SPEC.md`, `PLAN.md` and skills in **this repo's** `.claude/` folder: `.claude/plans/<feature>/SPEC.md`, `.claude/plans/<feature>/PLAN.md` and `.claude/skills/<name>/SKILL.md`. Never put them in a root `.claude/` folder: the project root holds only `CLAUDE.md`. If the work is mostly frontend, the files go in `TraceMyMoneyUI/.claude/` instead. A feature that touches both lives in the repo where most of its steps are (one plan, not two). Create the folders if they do not exist.
+
 ## Your role and engineering principles
 
 Whenever you work on this backend, act as a senior principal backend engineer who knows production systems, performance and security:
@@ -94,7 +98,7 @@ API docs available at `http://localhost:8000/docs` when running locally.
 
 ## Architecture
 
-**This backend was migrated from MongoDB to PostgreSQL** and production runs on Postgres. See `/PLAN.md` at the repo root for the migration history and bugs. `scripts/migrate_mongo_to_pg.py` is the one-time Mongo→Postgres tool. Feature plans live in `/.claude/plans/` and reusable how-tos in `/.claude/skills/`; read the relevant ones first (see the root `CLAUDE.md`).
+**This backend was migrated from MongoDB to PostgreSQL** and production runs on Postgres. See `/PLAN.md` at the repo root for the migration history and bugs. `scripts/migrate_mongo_to_pg.py` is the one-time Mongo→Postgres tool. Feature plans live in `.claude/plans/` and reusable how-tos in `.claude/skills/` **in this repo** (`TraceMyMoneyAPI/.claude/`); read the relevant ones first.
 
 **Email** (`app/services/email/`, `app/services/account_email_service.py`): handlers only INSERT into the `email_jobs` outbox; a worker started in `main.py`'s lifespan (`EMAIL_WORKER_ENABLED`) sends through Mailgun. Tokens are in `email_tokens` (sha256-hashed, single use). Chat tool `email_expenses` queues report PDFs; `export_expenses` only downloads. **MCP/OAuth**: `mcp_server/`, `app/api/oauth.py`, `app/services/oauth_service.py`.
 
