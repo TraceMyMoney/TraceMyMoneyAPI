@@ -28,7 +28,9 @@ services:
     networks:
       - app-network
       - edge-network
-    command: uv run uvicorn main:app --host 0.0.0.0 --port 5000 --reload
+    # No --reload here: it re-scans every file in /app (including .venv) in a
+    # loop, which pinned the 1-CPU / 1GB EC2 box and made the API time out.
+    command: uv run uvicorn main:app --host 0.0.0.0 --port 5000
 #    extra_hosts:
 #     - "host.docker.internal:host-gateway"
 
