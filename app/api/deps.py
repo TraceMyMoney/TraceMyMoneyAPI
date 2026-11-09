@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import decode_access_token
 from app.db.postgres import get_postgres_session
 from app.models.user import UserModel
+from app.services.account_email_service import AccountEmailService
 from app.services.bank_service import BankService
 from app.services.entry_tag_service import EntryTagService
 from app.services.expense_service import ExpenseService
@@ -17,6 +18,10 @@ from app.services.user_service import UserService
 async def get_db(session: AsyncSession = Depends(get_postgres_session)) -> AsyncSession:
     """Dependency to get database session instance."""
     return session
+
+
+async def get_account_email_service(db: AsyncSession = Depends(get_db)) -> AccountEmailService:
+    return AccountEmailService(db)
 
 
 async def get_user_service(db: AsyncSession = Depends(get_db)) -> UserService:
@@ -131,6 +136,7 @@ CurrentUser = Annotated[UserModel, Depends(get_current_user)]
 AdminUser = Annotated[UserModel, Depends(get_current_admin_user)]
 DatabaseDep = Annotated[AsyncSession, Depends(get_db)]
 UserServiceDep = Annotated[UserService, Depends(get_user_service)]
+AccountEmailServiceDep = Annotated[AccountEmailService, Depends(get_account_email_service)]
 BankServiceDep = Annotated[BankService, Depends(get_bank_service)]
 ExpenseServiceDep = Annotated[ExpenseService, Depends(get_expense_service)]
 EntryTagServiceDep = Annotated[EntryTagService, Depends(get_entry_tag_service)]

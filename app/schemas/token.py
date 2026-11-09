@@ -37,3 +37,20 @@ class LoginRequest(BaseModel):
             }
         }
     }
+
+
+class EmailRequest(BaseModel):
+    """Body for resend-verification and forgot-password."""
+
+    email: str
+
+
+class TokenRequest(BaseModel):
+    """Body for verify-email: the opaque token from the emailed link."""
+
+    token: str
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    password: str

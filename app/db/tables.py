@@ -42,6 +42,8 @@ users = Table(
     Column("is_admin", Boolean, nullable=False, server_default="false"),
     Column("chatbot_enabled", Boolean, nullable=False, server_default="false"),
     Column("is_disabled", Boolean, nullable=False, server_default="false"),
+    # NULL until the user clicks the confirm-email link (see email_tokens).
+    Column("email_verified_at", DateTime(timezone=True)),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
 )
@@ -228,4 +230,35 @@ oauth_tokens = Table(
     Column("last_used_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     Column("expires_at", DateTime(timezone=True), nullable=False),
     Index("ix_oauth_tokens_user_id", "user_id"),
+)
+
+# One-time verify-email / reset-password links. Only the sha256 hash is stored.
+email_tokens = Table(
+    "email_tokens",
+    metadata,
+    uuid_pk(),
+    Column("user_id", UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+    Column("purpose", String(20), nullable=False),  # "verify" | "reset"
+    Column("token_hash", String(64), nullable=False, unique=True),
+    Column("expires_at", DateTime(timezone=True), nullable=False),
+    Column("used_at", DateTime(timezone=True)),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Index("ix_email_tokens_user_purpose", "user_id", "purpose"),
+)
+
+# The email outbox: handlers INSERT, the background worker sends.
+email_jobs = Table(
+    "email_jobs",
+    metadata,
+    uuid_pk(),
+    Column("user_id", UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+    Column("kind", String(30), nullable=False),  # verify_email | reset_password | expense_report
+    Column("payload", JSONB, nullable=False, server_default="{}"),
+    Column("status", String(10), nullable=False, server_default="pending"),  # pending|sending|sent|failed
+    Column("attempts", Integer, nullable=False, server_default="0"),
+    Column("run_after", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column("last_error", Text),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column("sent_at", DateTime(timezone=True)),
+    Index("ix_email_jobs_due", "status", "run_after"),
 )

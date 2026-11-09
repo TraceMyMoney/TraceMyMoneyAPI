@@ -15,6 +15,7 @@ class UserModel(BaseModel):
     is_admin: bool = False
     chatbot_enabled: bool = False
     is_disabled: bool = False
+    email_verified_at: datetime | None = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

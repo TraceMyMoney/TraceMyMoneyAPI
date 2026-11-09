@@ -58,6 +58,7 @@ _ALWAYS_INCLUDED_TOOLS = {
     "list_recent_expenses",
     "search_expenses",
     "export_expenses",
+    "email_expenses",
     "spending_summary",
     "set_dark_mode",
     "set_privacy_mode",
@@ -99,6 +100,13 @@ You have tools covering nearly everything the app itself can do:
   a file. Same filters as search_expenses; defaults to PDF, can do CSV
   too. It produces a real file the user's browser downloads - never
   paste CSV/table text into the chat yourself as a substitute for this.
+  It NEVER sends email.
+- Email a report: email_expenses - ONLY when the user explicitly says
+  email/mail/"send to my inbox" (set user_asked_for_email=true). It sends
+  the PDF to their own account email in the background. "download",
+  "export", "give me a PDF" are NOT email requests - use export_expenses.
+  If it is unclear whether they want a download or an email (e.g. "send
+  me my expenses"), ask which one before doing anything.
 - Expenses: create_expense (expense or topup), transfer_money (between
   two of the user's own banks), delete_expense (a whole day's expense),
   delete_expense_entry (just one entry within a day), edit_expense_entry

@@ -24,6 +24,7 @@ nothing is written to the database until that happens. Exceptions:
   step would just be friction.
 """
 
+import uuid
 from datetime import datetime, timezone
 
 from langchain_core.tools import tool
@@ -36,10 +37,20 @@ from app.schemas.entry_tag import EntryTagCreate, EntryTagUpdate
 from app.schemas.expense import ExpenseCreate
 from app.schemas.expense_entry import ExpenseEntryCreate, ExpenseEntryUpdate
 from app.schemas.user_preference import UserPreferenceUpdate
+from app.services.agent.report import ReportError, build_report_file, gather_export_rows
 from app.services.bank_service import BankService
 from app.services.entry_tag_service import EntryTagService
 from app.services.expense_service import ExpenseService
 from app.services.user_preference_service import UserPreferenceService
+
+
+MAX_REPORT_EMAILS_PER_HOUR = 5
+
+
+def mask_email(email: str) -> str:
+    """j***@gmail.com - shows the user where it went without printing the whole address."""
+    name, _, domain = email.partition("@")
+    return f"{name[:1]}***@{domain}" if domain else "your account email"
 
 
 def build_tools(user_id: str, db: AsyncSession, export_box: dict | None = None) -> list:
@@ -280,83 +291,99 @@ def build_tools(user_id: str, db: AsyncSession, export_box: dict | None = None) 
         if format not in ("pdf", "csv"):
             return "format must be 'pdf' or 'csv'."
 
-        bank_id = None
-        if bank_name:
-            bank_id = await _resolve_bank_id(bank_name)
-            if bank_id is None:
-                return f"No bank account named '{bank_name}' found. Try list_banks."
-        tag_id = None
-        if tag_name:
-            tag_id = await _resolve_tag_id(tag_name)
-            if tag_id is None:
-                return f"No tag named '{tag_name}' found. Try list_tags."
-
-        advanced = bool(keyword or tag_id or start_date)
-        search_kwargs = {"advanced_search": advanced, "per_page": 100}
-        if advanced:
-            if keyword:
-                search_kwargs["search_by_keyword"] = keyword
-            if tag_id:
-                search_kwargs["search_by_tags"] = [tag_id]
-            if bank_id:
-                search_kwargs["search_by_bank_ids"] = [bank_id]
-            if start_date:
-                search_kwargs["search_by_daterange"] = {
-                    "start_date": start_date,
-                    "end_date": end_date,
-                }
-        elif bank_id:
-            search_kwargs["bank_id"] = bank_id
-
-        params = AdvancedSearchParams(**search_kwargs)
-        found_expenses, total, _, _ = await expense_service.get_expenses(user_id, params)
-
-        rows = []
-        for e in found_expenses:
-            for en in e["expenses"]:
-                amount = en["amount"]
-                if min_amount is not None and abs(amount) < min_amount:
-                    continue
-                if max_amount is not None and abs(amount) > max_amount:
-                    continue
-                rows.append(
-                    {
-                        "date": e["created_at"].strftime("%d/%m/%Y"),
-                        "bank": e["bank_name"],
-                        "description": en["description"] or "(no description)",
-                        "amount": amount,
-                    }
-                )
-        if not rows:
-            return "No matching expenses to export."
-
-        matched_count = len(rows)
-        if top_n is not None and top_n > 0:
-            from datetime import datetime as _datetime
-
-            # Most recent N, not highest-amount N - "top N" means recency
-            # to the user (today first, then yesterday, then earlier).
-            rows.sort(key=lambda r: _datetime.strptime(r["date"], "%d/%m/%Y"), reverse=True)
-            rows = rows[:top_n]
+        filters = {
+            "keyword": keyword, "tag_name": tag_name, "bank_name": bank_name,
+            "start_date": start_date, "end_date": end_date,
+            "min_amount": min_amount, "max_amount": max_amount, "top_n": top_n,
+        }
+        try:
+            data = await gather_export_rows(db, user_id, filters)
+        except ReportError as e:
+            return str(e)
 
         import base64
 
-        from app.services.agent.export import build_export
-
-        title_bits = [b for b in [tag_name, bank_name, keyword] if b]
-        title_bits_str = ", ".join(title_bits)
-        if top_n is not None:
-            title = f"Top {len(rows)} Expenses" + (f" - {title_bits_str}" if title_bits_str else "")
-        else:
-            title = ("Expenses - " + title_bits_str) if title_bits_str else "Expenses"
-        content, filename, mime_type = build_export(rows, title, format)
+        content, filename, mime_type = build_report_file(data, format)
 
         if export_box is not None:
             export_box["filename"] = filename
             export_box["mime_type"] = mime_type
             export_box["content_b64"] = base64.b64encode(content).decode("ascii")
 
-        return f"Exported {len(rows)} of {matched_count} matching entries as {filename} - ready to download."
+        return f"Exported {len(data.rows)} of {data.matched_count} matching entries as {filename} - ready to download."
+
+    @tool
+    async def email_expenses(
+        user_asked_for_email: bool,
+        keyword: str | None = None,
+        tag_name: str | None = None,
+        bank_name: str | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        min_amount: float | None = None,
+        max_amount: float | None = None,
+        top_n: int | None = None,
+        format: str = "pdf",
+    ) -> str:
+        """EMAIL the user a PDF (or CSV) of their expenses to their own
+        account email. Use this ONLY when the user explicitly asks for
+        email ("email me...", "mail it to me", "send it to my inbox") and
+        set user_asked_for_email=true. NEVER use it for download/export/
+        "show me a PDF" - that is export_expenses, which never sends
+        email. If the wording is ambiguous (e.g. just "send me my
+        expenses"), do NOT call this: ask "Download it here, or email it
+        to you?" first. It can only send to the user's own address (there
+        is no recipient argument). Same filters as export_expenses (date
+        range as DD/MM/YYYY etc). The email is sent in the background, so
+        this returns immediately; tell the user it was queued and where."""
+        if not user_asked_for_email:
+            return (
+                "Nothing was sent: the user did not explicitly ask for email. "
+                "Use export_expenses to let them download it, or ask whether they want it emailed."
+            )
+        if format not in ("pdf", "csv"):
+            return "format must be 'pdf' or 'csv'."
+
+        filters = {
+            "keyword": keyword, "tag_name": tag_name, "bank_name": bank_name,
+            "start_date": start_date, "end_date": end_date,
+            "min_amount": min_amount, "max_amount": max_amount, "top_n": top_n,
+        }
+        # Check now so a typo'd bank or an empty range is answered in chat,
+        # instead of becoming a failed background job later.
+        try:
+            data = await gather_export_rows(db, user_id, filters)
+        except ReportError as e:
+            return str(e)
+
+        # Abuse guard: a report email is cheap to ask for, so cap how many per hour.
+        from datetime import timedelta
+
+        from sqlalchemy import func, select
+
+        from app.db.tables import email_jobs, users
+        from app.services.email.outbox import KIND_EXPENSE_REPORT, enqueue_email
+
+        uid = uuid.UUID(str(user_id))
+        since = datetime.now(timezone.utc) - timedelta(hours=1)
+        recent = (
+            await db.execute(
+                select(func.count()).select_from(email_jobs).where(
+                    email_jobs.c.user_id == uid, email_jobs.c.kind == KIND_EXPENSE_REPORT, email_jobs.c.created_at > since
+                )
+            )
+        ).scalar_one()
+        if recent >= MAX_REPORT_EMAILS_PER_HOUR:
+            return f"Not sent: you've already asked for {MAX_REPORT_EMAILS_PER_HOUR} report emails in the last hour. Try again later, or download it here instead."
+
+        row = (await db.execute(select(users.c.email).where(users.c.id == uid))).first()
+        if not row:
+            return "Could not find your account email."
+        await enqueue_email(db, user_id, KIND_EXPENSE_REPORT, {"filters": filters, "format": format})
+        return (
+            f"Queued: {len(data.rows)} entries as a {format.upper()} to {mask_email(row[0])}. "
+            "It's sent in the background and should arrive within a minute."
+        )
 
     @tool
     async def create_expense(
@@ -833,6 +860,7 @@ def build_tools(user_id: str, db: AsyncSession, export_box: dict | None = None) 
         list_recent_expenses,
         search_expenses,
         export_expenses,
+        email_expenses,
         spending_summary,
         create_expense,
         transfer_money,

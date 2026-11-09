@@ -59,8 +59,9 @@ async def client(test_db):
 
 
 @pytest_asyncio.fixture
-async def registered_user(client):
-    """Registers a user and returns their credentials."""
+async def registered_user(client, test_db):
+    """Registers a user (and marks their email verified, since login requires
+    it) and returns their credentials."""
     payload = {
         "username": "characterization",
         "email": "characterization@example.com",
@@ -68,6 +69,10 @@ async def registered_user(client):
     }
     resp = await client.post("/register", json=payload)
     assert resp.status_code == 200, resp.text
+    await test_db.execute(
+        text("UPDATE users SET email_verified_at = now() WHERE username = :u"), {"u": payload["username"]}
+    )
+    await test_db.commit()
     return {"username": payload["username"], "password": payload["password"], "user_id": resp.json()["user_id"]}
 
 

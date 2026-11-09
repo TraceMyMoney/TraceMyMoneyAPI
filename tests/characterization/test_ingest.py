@@ -1,6 +1,7 @@
 """SMS ingest webhook: token auth, parsing, dedupe, and the confirm flow."""
 
 import pytest
+from sqlalchemy import text
 
 from app.core.config import settings
 from app.services import ingest_service
@@ -302,7 +303,7 @@ async def test_settings_needs_a_token_first(client, auth_headers):
     assert resp.status_code == 404
 
 
-async def test_added_sms_follows_the_normal_expense_rules(client, auth_headers):
+async def test_added_sms_follows_the_normal_expense_rules(client, auth_headers, test_db):
     """Same-day SMS share one row, the balance goes down, other users' banks are refused."""
     sbi = await _bank(client, auth_headers, "SBI")  # opening balance 1000
     hdr = {"X-Ingest-Token": await _token(client, auth_headers)}
@@ -321,6 +322,9 @@ async def test_added_sms_follows_the_normal_expense_rules(client, auth_headers):
 
     other = {"username": "other_person", "email": "o@example.com", "password": "testpass123"}
     await client.post("/register", json=other)
+    # Login requires a confirmed email now; confirm this second user directly.
+    await test_db.execute(text("UPDATE users SET email_verified_at = now() WHERE username = 'other_person'"))
+    await test_db.commit()
     other_login = (await client.post("/login", json={"username": "other_person", "password": "testpass123"})).json()
     other_headers = {"Authorization": other_login["token"]}
     ot = (await client.post("/ingest/token", headers=other_headers)).json()["token"]

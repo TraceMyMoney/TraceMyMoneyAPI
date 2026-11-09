@@ -64,6 +64,16 @@ class Settings(BaseSettings):
         "OAUTH_ALLOWED_REDIRECT_HOSTS", "claude.ai,claude.com,localhost,127.0.0.1"
     )
 
+    # Transactional email via the Mailgun HTTP API (same variable names as
+    # obsidian-clone). If any of the three is empty the app falls back to a
+    # console backend that just logs the email (and its link) - nothing is sent.
+    MAILGUN_API_KEY: str = environ.get("MAILGUN_API_KEY", "")
+    MAILGUN_URI: str = environ.get("MAILGUN_URI", "")
+    MAILGUN_FROM_ADDR: str = environ.get("MAILGUN_FROM_ADDR", "")
+    EMAIL_FROM_NAME: str = environ.get("EMAIL_FROM_NAME", "Stalk My Money")
+    # Background email worker (the outbox poller). Tests turn it off.
+    EMAIL_WORKER_ENABLED: bool = environ.get("EMAIL_WORKER_ENABLED", "true").lower() not in ("0", "false", "no")
+
     class Config:
         env_file = ".env"
         case_sensitive = True
