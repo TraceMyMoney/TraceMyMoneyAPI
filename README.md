@@ -99,7 +99,7 @@ sequenceDiagram
     alt sent
         W->>O: status = sent, payload scrubbed
     else temporary error (5xx, 429, network)
-        W->>O: retry later (1m, 5m, 30m, 2h; max 5 tries)
+        W->>O: retry later (1m, 5m, 30m, 2h, max 5 tries)
     else permanent error (other 4xx)
         W->>O: status = failed
     end
