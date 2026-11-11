@@ -285,6 +285,7 @@ class ExpenseService:
                     e.c.day,
                     e.c.remaining_amount_till_now,
                     e.c.created_at.label("expense_created_at"),
+                    func.date(e.c.created_at).label("expense_day"),
                     ee.c.id.label("entry_pk"),
                     ee.c.ee_id,
                     ee.c.amount,
@@ -321,6 +322,7 @@ class ExpenseService:
                         "day": r["day"],
                         "remaining_amount_till_now": float(r["remaining_amount_till_now"]),
                         "created_at": r["expense_created_at"],
+                        "_day": r["expense_day"],
                         "expense_total": 0.0,
                         "topup_expense_total": 0.0,
                         "expenses": [],
@@ -342,8 +344,34 @@ class ExpenseService:
                 )
 
         paginated_expenses = list(grouped.values())
+        await self._attach_day_totals(uid, paginated_expenses)
 
         return paginated_expenses, total_count, non_topup_total, topup_total
+
+    async def _attach_day_totals(self, uid: uuid.UUID, expense_rows: list[dict]) -> None:
+        """Set `day_total` on each expense row: the user's total debit spend for that
+        calendar day across ALL banks, ignoring search filters, excluded tags and
+        pagination (the daily limit is about real spending). One grouped query for
+        the days on this page. The day is `func.date(created_at)`, the same rule the
+        analytics daily totals use."""
+        days = {row["_day"] for row in expense_rows}
+        if not days:
+            return
+        day_col = func.date(expenses.c.created_at)
+        result = await self.db.execute(
+            select(
+                day_col.label("day"),
+                func.coalesce(
+                    func.sum(case((expense_entries.c.amount > 0, expense_entries.c.amount), else_=0)), 0
+                ).label("total"),
+            )
+            .select_from(expenses.join(expense_entries, expense_entries.c.expense_id == expenses.c.id))
+            .where(expenses.c.user_id == uid, day_col.in_(days))
+            .group_by(day_col)
+        )
+        totals = {r.day: float(r.total) for r in result.all()}
+        for row in expense_rows:
+            row["day_total"] = totals.get(row.pop("_day"), 0.0)
 
     async def get_expense_by_id(self, user_id: str, expense_id: str) -> ExpenseModel | None:
         """Get a single expense by ID."""

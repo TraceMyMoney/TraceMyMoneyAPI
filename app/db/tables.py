@@ -163,6 +163,8 @@ user_preferences = Table(
     Column("privacy_mode_enabled", Boolean, nullable=False, server_default="false"),
     Column("banks_display_order", ARRAY(UUID(as_uuid=True)), nullable=False, server_default="{}"),
     Column("default_excluded_tags", ARRAY(UUID(as_uuid=True)), nullable=False, server_default="{}"),
+    # Max total debit spend per calendar day before the UI marks the day red. NULL = no limit.
+    Column("daily_expense_limit", Numeric(18, 2), nullable=True),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
 )

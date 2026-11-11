@@ -55,6 +55,8 @@ class ExpenseResponse(BaseModel):
     expenses: list[ExpenseEntryResponse]
     expense_total: float
     topup_expense_total: float | None = 0.0
+    # Total debit spend of the whole calendar day across all banks (for the daily limit warning).
+    day_total: float | None = None
     remaining_amount_till_now: float
     created_at: datetime
 

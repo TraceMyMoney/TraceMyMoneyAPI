@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from decimal import Decimal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -14,6 +15,7 @@ class UserPreferenceModel(BaseModel):
     privacy_mode_enabled: bool | None = None
     banks_display_order: list[str] = Field(default_factory=list)
     default_excluded_tags: list[str] = Field(default_factory=list)
+    daily_expense_limit: Decimal | None = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
