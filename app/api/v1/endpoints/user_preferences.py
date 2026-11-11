@@ -18,6 +18,7 @@ async def get_user_preferences(
         "privacy_mode_enabled": prefs.privacy_mode_enabled,
         "banks_display_order": prefs.banks_display_order,
         "default_excluded_tags": prefs.default_excluded_tags,
+        "daily_expense_limit": float(prefs.daily_expense_limit) if prefs.daily_expense_limit is not None else None,
     }
 
 

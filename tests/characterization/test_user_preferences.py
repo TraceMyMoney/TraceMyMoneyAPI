@@ -11,6 +11,7 @@ async def test_get_default_preferences(client, auth_headers):
         "privacy_mode_enabled": False,
         "banks_display_order": [],
         "default_excluded_tags": [],
+        "daily_expense_limit": None,
     }
 
 
